@@ -48,3 +48,15 @@ public/workbox-*.js.map
 
 # Docker
 *.log
+
+# Internal team notes and assistant instructions (local only)
+CLAUDE.md
+*/CLAUDE.md
+AGENTS.md
+*/AGENTS.md
+PROJECT_STATUS.md
+ARCHITECTURE_AND_SIH_GUIDE.md
+ARCHITECTURE.md
+tools/
+workflows/
+frontend/README.md

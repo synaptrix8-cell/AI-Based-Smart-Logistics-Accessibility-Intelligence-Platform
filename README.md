@@ -1,148 +1,118 @@
-# 🌉 Setu - Smart Logistics & Accessibility Intelligence Platform
+# Setu: AI-Based Smart Logistics and Accessibility Intelligence Platform
 
-> AI-Based Smart Logistics and Accessibility Intelligence Platform for India's North Eastern Region (SIH26002)
+Smart India Hackathon 2024: Problem ID SIH26002  
+Ministry: Ministry of Development of North Eastern Region (MDoNER)  
+Pilot Region: East Khasi Hills District, Meghalaya (Shillong, Cherrapunji, Dawki, Mawsynram, Nongpoh)  
 
-**Ministry**: Development of North Eastern Region (MDoNER)
+Live Application: https://frontend-ecru-seven-70.vercel.app  
+Demo Dashboard: https://frontend-ecru-seven-70.vercel.app/dashboard?demo=true  
 
----
+## 1. Problem Overview
 
-## What is Setu?
+During monsoon seasons, India's North Eastern Region faces severe logistical disruptions. High rainfall in areas like Cherrapunji and Mawsynram causes frequent landslides, road subsidence, and flooding. When major arterial highways like NH-6 are blocked, critical shipments of food, medicines, and relief materials are delayed or cut off.
 
-Setu monitors real-time road and transport accessibility across NER districts, predicts route disruptions from landslides, floods, and road damage, and provides AI-based alternate safe routing. It includes a GIS accessibility dashboard, GPS-relevant vehicle awareness, real-time alerts, and field-level mobile/web reporting.
+Standard consumer navigation tools optimize for flat terrain traffic speed and do not evaluate geotechnical risks, mountain slope angles, or real-time soil saturation. Setu solves this by providing hazard-aware route planning and accessibility intelligence for mountain transport corridors.
 
-## Architecture
+## 2. How the Platform Works
+
+The platform monitors critical logistics corridors and helps drivers and government authorities plan safe travel:
+
+* Real-Time GIS Risk Map: Displays road corridors across East Khasi Hills color-coded by current safety level (Green for low risk, Amber for moderate risk, Red for high hazard or road closure).
+* Corridor Inspection: Users can click any corridor to inspect its slope angle, current rainfall rate, and verified field incident reports.
+* AI Safe-Route Finder: Uses a risk-weighted Dijkstra pathfinding algorithm. Drivers choose their start hub and destination hub, set their risk tolerance, and the system finds a safe path that avoids hazardous segments.
+* Offline Operation: Built as a Progressive Web App (PWA). If mobile data drops in mountain valleys, the app remains responsive, queues hazard reports locally in the browser, and supports emergency SMS fallback reporting.
+* Authority Command View: District officials can review incoming field reports, verify road blockages, and push rerouting alerts across the active network.
+
+## 3. Where the Data Comes From
+
+The platform brings together data across multiple sources:
+
+* Road Networks and Geometry: OpenStreetMap (OSM) highway polylines for East Khasi Hills stored as PostGIS LineString geometry objects in the database.
+* Topography and Slope Gradient: Calculated terrain steepness angles derived from Digital Elevation Model (DEM) data, stored per road segment.
+* Weather and Rainfall Feeds: Live precipitation and rainfall intensity fetched from weather API feeds and cached in PostgreSQL.
+* Historical Incident Records: Baseline landslide and flood vulnerability data seeded from regional geological surveys.
+* Field Reports and Crowdsourcing: Real-time incident reports submitted by drivers and field observers with GPS coordinates and photos.
+
+## 4. System Architecture
+
+The platform uses a three-tier architecture:
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    Frontend                         │
-│           Next.js 15 (App Router) + PWA             │
-│         Leaflet Map + Supabase Realtime             │
-├─────────────────────────────────────────────────────┤
-│                  Supabase                           │
-│    Auth │ Postgres+PostGIS │ Realtime │ RLS         │
-├─────────────────────────────────────────────────────┤
-│              Risk Engine (FastAPI)                  │
-│   NetworkX Graph │ Risk Scoring │ Safe Routing      │
-├─────────────────────────────────────────────────────┤
-│              External Services                      │
-│     OpenWeatherMap │ Twilio (SMS/WhatsApp)           │
-└─────────────────────────────────────────────────────┘
+[ Web & Mobile PWA Client ]
+      |
+      v
+[ Next.js 16 Web Application ]
+      |
+      +---> [ PostgreSQL 15 + PostGIS via Supabase ]
+      |         - Spatial geometry tables
+      |         - Real-time WebSocket subscriptions
+      |         - Row Level Security (RLS) policies
+      |
+      +---> [ Python FastAPI Risk Engine ]
+                - NetworkX Dijkstra safe routing service
+                - Multi-factor Road Risk Index calculator
+                - Weather API polling service
 ```
 
-## Quick Start
+* Frontend: Next.js 16 App Router, React 19, TypeScript, and Leaflet for GIS rendering.
+* Backend & Database: Supabase PostgreSQL 15 with PostGIS extension for spatial queries and real-time data replication.
+* Intelligence Engine: Python FastAPI microservice running NetworkX for graph pathfinding and risk calculations.
+* Hosting: Deployed on Vercel Edge platform.
+
+## 5. Database Structure
+
+The database consists of 10 structured tables:
+
+* districts: Administrative district boundaries with PostGIS polygons.
+* road_segments: 15 monitored road corridors with geometry, slope, and risk scores.
+* risk_scores: Historical and computed risk index records per corridor.
+* risk_alerts: System-generated hazard alerts by severity level.
+* reports: Field hazard reports with GPS coordinates and incident categories.
+* report_verifications: Verification logs by authorized personnel.
+* notifications: User notification and dispatch logs.
+* audit_logs: Administrative audit trail for status overrides.
+* weather_cache: Cached rainfall telemetry.
+* users: User profiles with role-based access (official, driver, reporter, admin).
+
+## 6. How to Run the Project Locally
 
 ### Prerequisites
-- Node.js 20+
-- Python 3.12+
-- Supabase account ([supabase.com](https://supabase.com))
+* Node.js 20 or higher
+* Python 3.12 or higher
+* A Supabase project with PostGIS enabled
 
-### 1. Clone & install
+### Step 1: Clone the Repository
 ```bash
-git clone <repo-url>
-cd setu
-
-# Frontend
-cd frontend && npm install
-
-# Risk Engine
-cd ../services/risk-engine
-python -m venv .venv
-.venv/Scripts/activate     # Windows
-# source .venv/bin/activate  # macOS/Linux
-pip install -r requirements.txt
+git clone https://github.com/synaptrix8-cell/AI-Based-Smart-Logistics-Accessibility-Intelligence-Platform.git
+cd AI-Based-Smart-Logistics-Accessibility-Intelligence-Platform
 ```
 
-### 2. Configure environment
+### Step 2: Set Up Database Schema
+Open your Supabase SQL Editor and run the script:
+`infra/supabase/full_schema_setup.sql`
+
+This sets up all required tables, spatial indexes, and seeds the 15 East Khasi Hills corridors.
+
+### Step 3: Run the Frontend
 ```bash
-# Copy the env template
-cp .env.example .env
-
-# Fill in your Supabase credentials:
-# - NEXT_PUBLIC_SUPABASE_URL
-# - NEXT_PUBLIC_SUPABASE_ANON_KEY
-# - SUPABASE_SERVICE_ROLE_KEY
-# - SUPABASE_JWT_SECRET
-
-# Also copy for the risk engine:
-cp services/risk-engine/.env.example services/risk-engine/.env
+cd frontend
+npm install
+node node_modules/next/dist/bin/next dev
 ```
+Open http://localhost:3000 in your browser.
 
-### 3. Set up the database
-Run the SQL migrations in order against your Supabase project:
-1. `infra/supabase/migrations/001_enable_extensions.sql`
-2. `infra/supabase/migrations/002_create_tables.sql`
-3. `infra/supabase/migrations/003_enable_rls.sql`
-4. `infra/supabase/migrations/004_audit_triggers.sql`
-5. `infra/supabase/migrations/005_seed_east_khasi_hills.sql`
-
-### 4. Run locally
+### Step 4: Run the Risk Engine (Optional for local routing microservice)
 ```bash
-# Terminal 1: Frontend
-cd frontend && npm run dev
-
-# Terminal 2: Risk Engine
 cd services/risk-engine
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
 ```
+API documentation is available at http://localhost:8000/docs.
 
-Frontend: http://localhost:3000
-Risk Engine: http://localhost:8000
-Health Check: http://localhost:8000/health
+## 7. Security and Privacy
 
-## Project Structure
-
-```
-setu/
-├── frontend/             # Next.js 15 App Router + PWA
-│   ├── src/
-│   │   ├── app/          # Pages and layouts
-│   │   ├── components/   # Reusable UI components
-│   │   └── lib/          # Supabase clients, types, utilities
-│   └── public/           # Static assets, service worker
-│
-├── services/
-│   └── risk-engine/      # FastAPI — risk scoring + safe routing
-│       ├── core/         # Config, security (JWT)
-│       ├── routers/      # API endpoints
-│       └── schemas/      # Pydantic models
-│
-└── infra/
-    ├── docker-compose.yml
-    └── supabase/
-        ├── migrations/   # SQL schema + RLS + triggers
-        └── seed/         # OSM data fetcher
-```
-
-## Security Model
-
-| Layer | Implementation |
-|---|---|
-| **In transit** | TLS everywhere (HTTPS, HSTS) |
-| **At rest** | Supabase native encryption |
-| **Field reports** | AES-GCM client-side encryption (Web Crypto API) |
-| **Access control** | Row-Level Security on every table |
-| **Auth** | Supabase OTP + short-lived JWTs + refresh rotation |
-| **Audit** | Trigger-based audit log on all sensitive tables |
-| **API security** | Rate limiting, input validation (zod/pydantic), CORS lock |
-
-## Seed Data
-
-The platform is pre-seeded with **15 road segments** across East Khasi Hills (Meghalaya):
-- NH6 (Guwahati → Shillong corridor)
-- NH40 (Shillong → Dawki corridor)
-- Local roads (Mawlai, Laban, Smit, Cherrapunji)
-
-Each segment has realistic base risk scores based on terrain, rainfall, and historical incident data.
-
-## Roles
-
-| Role | Permissions |
-|---|---|
-| **Reporter** | Submit reports, view own reports, see map/alerts |
-| **Driver** | Same as reporter + safe routing |
-| **Official** | Verify/reject reports in their district, see all district data |
-| **Admin** | Full access + user management + audit log |
-
-## License
-
-MIT
+* Credentials and secrets are kept strictly in private environment files and are never committed to the repository.
+* Database access is secured via PostgreSQL Row Level Security (RLS) policies.
+* This repository is private and confidential to the development team and project evaluators.
