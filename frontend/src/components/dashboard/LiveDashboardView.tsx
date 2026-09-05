@@ -3,6 +3,7 @@
 import { useState } from "react";
 import DynamicRiskMap from "@/components/map/DynamicRiskMap";
 import RoutePlanner from "@/components/routing/RoutePlanner";
+import ReportModal from "@/components/reporting/ReportModal";
 import { RoadSegmentData, EAST_KHASI_HILLS_SEGMENTS } from "@/lib/data/road-segments";
 import styles from "./dashboard-view.module.css";
 
@@ -20,6 +21,7 @@ export default function LiveDashboardView() {
   const [shortestRoute, setShortestRoute] = useState<RouteOverlay | null>(null);
   const [originCoords, setOriginCoords] = useState<[number, number] | null>(null);
   const [destCoords, setDestCoords] = useState<[number, number] | null>(null);
+  const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
 
   const handleRouteCalculated = (
     safe: RouteOverlay | null,
@@ -158,6 +160,14 @@ export default function LiveDashboardView() {
                   <span className={styles.factorStatus}>Primary Transport Link</span>
                 </div>
               </div>
+
+              <button
+                type="button"
+                className={styles.reportCorridorBtn}
+                onClick={() => setIsReportModalOpen(true)}
+              >
+                <span>⚠️</span> Flag Incident on this Corridor
+              </button>
             </div>
           )}
         </div>
@@ -167,6 +177,23 @@ export default function LiveDashboardView() {
           <RoutePlanner onRouteCalculated={handleRouteCalculated} />
         </div>
       </div>
+
+      {/* Floating Action Button for Quick Field Hazard Reporting */}
+      <button
+        type="button"
+        className={styles.reportFloatingBtn}
+        onClick={() => setIsReportModalOpen(true)}
+        title="Report Landslide or Hazard (GPS & Offline Enabled)"
+      >
+        <span style={{ fontSize: "1.1rem" }}>🚨</span> Report Hazard
+      </button>
+
+      {/* Field Report Modal */}
+      <ReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        defaultSegmentId={selectedSegment?.id}
+      />
     </div>
   );
 }

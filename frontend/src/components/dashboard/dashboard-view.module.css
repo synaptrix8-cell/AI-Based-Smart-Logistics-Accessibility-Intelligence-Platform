@@ -218,3 +218,49 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+.reportFloatingBtn {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  background: linear-gradient(135deg, #0a6847 0%, #10b981 100%);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50px;
+  padding: 12px 20px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  box-shadow: 0 8px 24px rgba(10, 104, 71, 0.5), 0 0 0 2px rgba(16, 185, 129, 0.3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 999;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reportFloatingBtn:hover {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 0 12px 30px rgba(16, 185, 129, 0.6);
+}
+
+.reportCorridorBtn {
+  margin-top: 10px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.reportCorridorBtn:hover {
+  background: rgba(239, 68, 68, 0.25);
+  color: #fff;
+}
