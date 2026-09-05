@@ -228,21 +228,23 @@ export const EAST_KHASI_HILLS_BOUNDARY: [number, number][] = [
 export interface KeyHub {
   id: string;
   name: string;
+  role?: string;
+  icon?: string;
   coords: [number, number]; // [lat, lng]
   elevation_m: number;
 }
 
 export const KEY_HUBS: KeyHub[] = [
-  { id: "nongpoh", name: "Nongpoh (NH6 Gateway)", coords: [25.891, 91.765], elevation_m: 485 },
-  { id: "umiam", name: "Umiam Lake Hub", coords: [25.848, 91.795], elevation_m: 980 },
-  { id: "shillong_center", name: "Shillong Police Bazaar", coords: [25.548, 91.900], elevation_m: 1496 },
-  { id: "shillong_upper", name: "Upper Shillong (Air Force)", coords: [25.572, 91.876], elevation_m: 1720 },
-  { id: "mawphlang", name: "Mawphlang Sacred Grove", coords: [25.460, 91.830], elevation_m: 1810 },
-  { id: "laitlyngkot", name: "Laitlyngkot Junction", coords: [25.510, 91.945], elevation_m: 1780 },
-  { id: "pynursla", name: "Pynursla Ridge", coords: [25.450, 92.010], elevation_m: 1420 },
-  { id: "cherrapunji", name: "Cherrapunji (Sohra)", coords: [25.280, 91.750], elevation_m: 1430 },
-  { id: "mawsynram", name: "Mawsynram Station", coords: [25.300, 91.720], elevation_m: 1400 },
-  { id: "nongriat", name: "Nongriat Living Root Bridge", coords: [25.250, 91.780], elevation_m: 680 },
+  { id: "nongpoh", name: "Nongpoh (NH6 Gateway)", role: "Northern Gateway", icon: "🚚", coords: [25.891, 91.765], elevation_m: 485 },
+  { id: "umiam", name: "Umiam Lake Hub", role: "Bypass Corridor", icon: "💧", coords: [25.848, 91.795], elevation_m: 980 },
+  { id: "shillong_center", name: "Shillong Central Hub", role: "Logistics HQ", icon: "🏛️", coords: [25.548, 91.900], elevation_m: 1496 },
+  { id: "shillong_upper", name: "Upper Shillong Base", role: "Relief Airbase", icon: "📦", coords: [25.572, 91.876], elevation_m: 1720 },
+  { id: "mawphlang", name: "Mawphlang Junction", role: "Western Relay", icon: "🌲", coords: [25.460, 91.830], elevation_m: 1810 },
+  { id: "laitlyngkot", name: "Laitlyngkot Junction", role: "Ridge Relay", icon: "⛰️", coords: [25.510, 91.945], elevation_m: 1780 },
+  { id: "pynursla", name: "Pynursla Ridge", role: "Southern Ridge", icon: "🏔️", coords: [25.450, 92.010], elevation_m: 1420 },
+  { id: "cherrapunji", name: "Cherrapunji (Sohra)", role: "High Rain Escarpment", icon: "🌧️", coords: [25.280, 91.750], elevation_m: 1430 },
+  { id: "mawsynram", name: "Mawsynram Station", role: "Extreme Rain Zone", icon: "⛈️", coords: [25.300, 91.720], elevation_m: 1400 },
+  { id: "dawki", name: "Dawki Border Port", role: "Export & River Gateway", icon: "🌊", coords: [25.185, 92.025], elevation_m: 120 },
 ];
 
 export function getRiskColor(score: number): string {

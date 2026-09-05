@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   KEY_HUBS,
   KeyHub,
@@ -22,9 +22,19 @@ interface RoutePlannerProps {
     originCoords: [number, number] | null,
     destCoords: [number, number] | null
   ) => void;
+  selectedOriginId?: string | null;
+  selectedDestId?: string | null;
+  onOriginChange?: (id: string) => void;
+  onDestChange?: (id: string) => void;
 }
 
-export default function RoutePlanner({ onRouteCalculated }: RoutePlannerProps) {
+export default function RoutePlanner({
+  onRouteCalculated,
+  selectedOriginId,
+  selectedDestId,
+  onOriginChange,
+  onDestChange,
+}: RoutePlannerProps) {
   const [originId, setOriginId] = useState<string>("nongpoh");
   const [destId, setDestId] = useState<string>("cherrapunji");
   const [avoidRiskThreshold, setAvoidRiskThreshold] = useState<number>(0.7);
@@ -34,6 +44,15 @@ export default function RoutePlanner({ onRouteCalculated }: RoutePlannerProps) {
     shortest: RouteOverlay;
     riskReductionPct: number;
   } | null>(null);
+
+  // Sync external selections (e.g. from map town clicks)
+  useEffect(() => {
+    if (selectedOriginId) setOriginId(selectedOriginId);
+  }, [selectedOriginId]);
+
+  useEffect(() => {
+    if (selectedDestId) setDestId(selectedDestId);
+  }, [selectedDestId]);
 
   const handleComputeRoute = async () => {
     const originHub = KEY_HUBS.find((h) => h.id === originId);

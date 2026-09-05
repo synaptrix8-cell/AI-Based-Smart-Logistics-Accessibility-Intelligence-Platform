@@ -9,12 +9,15 @@ import {
   Popup,
   Tooltip,
   CircleMarker,
+  Marker,
   useMap,
 } from "react-leaflet";
 import L from "leaflet";
 import {
   EAST_KHASI_HILLS_SEGMENTS,
   EAST_KHASI_HILLS_BOUNDARY,
+  KEY_HUBS,
+  KeyHub,
   RoadSegmentData,
   getRiskColor,
 } from "@/lib/data/road-segments";
@@ -44,6 +47,8 @@ interface RiskMapProps {
   originHubCoords?: [number, number] | null;
   destHubCoords?: [number, number] | null;
   filterRiskLevel?: string;
+  onSelectHubAsOrigin?: (hub: KeyHub) => void;
+  onSelectHubAsDest?: (hub: KeyHub) => void;
 }
 
 function MapViewController({
@@ -68,6 +73,8 @@ export default function RiskMap({
   originHubCoords,
   destHubCoords,
   filterRiskLevel = "ALL",
+  onSelectHubAsOrigin,
+  onSelectHubAsDest,
 }: RiskMapProps) {
   const [segments, setSegments] = useState<RoadSegmentData[]>(EAST_KHASI_HILLS_SEGMENTS);
   const [isClient, setIsClient] = useState(false);
@@ -163,6 +170,10 @@ export default function RiskMap({
     );
   }
 
+  const [showExplainer, setShowExplainer] = useState(false);
+  const [showTownHubs, setShowTownHubs] = useState(true);
+  const [showHazardPins, setShowHazardPins] = useState(true);
+
   // Filter segments
   const displayedSegments = segments.filter((s) => {
     if (filterRiskLevel === "ALL") return true;
@@ -172,16 +183,37 @@ export default function RiskMap({
     return true;
   });
 
+  const highHazardSegments = segments.filter((s) => s.risk_score >= 0.7);
   const centerCoords: [number, number] = [25.5788, 91.8933]; // Shillong
 
   return (
     <div className={styles.mapWrapper}>
+      {/* Map Quick Filter Pill Controls */}
+      <div className={styles.mapQuickControls}>
+        <button
+          type="button"
+          className={`${styles.controlPill} ${showTownHubs ? styles.activeControlPill : ""}`}
+          onClick={() => setShowTownHubs(!showTownHubs)}
+          title="Toggle Town & Logistics Hub Labels"
+        >
+          {showTownHubs ? "🏛️ Town Hubs: ON" : "🏛️ Hubs: OFF"}
+        </button>
+        <button
+          type="button"
+          className={`${styles.controlPill} ${showHazardPins ? styles.activeControlPill : ""}`}
+          onClick={() => setShowHazardPins(!showHazardPins)}
+          title="Toggle Hazard Alert Warnings"
+        >
+          {showHazardPins ? `⚠️ Hazards (${highHazardSegments.length})` : "⚠️ Hazards: OFF"}
+        </button>
+      </div>
+
       {/* Realtime Pulse Badge */}
       <div className={styles.realtimeBadge}>
         <span className={styles.livePulse} />
         <span>Supabase Realtime GIS Active</span>
         {activeRealtimeUpdates > 0 && (
-          <span className={styles.updateCounter}>({activeRealtimeUpdates} live updates)</span>
+          <span className={styles.updateCounter}>({activeRealtimeUpdates} updates)</span>
         )}
       </div>
 
@@ -216,10 +248,11 @@ export default function RiskMap({
 
         {/* Road Segments */}
         {displayedSegments.map((seg) => {
-          // Convert [lng, lat] to Leaflet [lat, lng]
           const latLngs = seg.coordinates.map((c) => [c[1], c[0]] as [number, number]);
           const color = getRiskColor(seg.risk_score);
           const isSelected = selectedSegmentId === seg.id;
+          const isHighRisk = seg.risk_score >= 0.7;
+          const isMediumRisk = seg.risk_score >= 0.4 && seg.risk_score < 0.7;
 
           return (
             <Polyline
@@ -227,8 +260,8 @@ export default function RiskMap({
               positions={latLngs}
               pathOptions={{
                 color: color,
-                weight: isSelected ? 8 : seg.risk_score >= 0.7 ? 6 : 5,
-                opacity: isSelected ? 1.0 : 0.85,
+                weight: isSelected ? 8 : isHighRisk ? 6 : 5,
+                opacity: isSelected ? 1.0 : 0.88,
                 lineCap: "round",
                 lineJoin: "round",
               }}
@@ -245,10 +278,17 @@ export default function RiskMap({
                     <span className={styles.highwayTag}>{seg.highway_ref}</span>
                   )}
                   <div>
-                    Risk Score:{" "}
+                    Safety Status:{" "}
                     <span style={{ color, fontWeight: 700 }}>
-                      {seg.risk_score.toFixed(2)} ({seg.risk_level})
+                      {isHighRisk
+                        ? "🔴 HAZARDOUS / HIGH SLIP RISK"
+                        : isMediumRisk
+                        ? "🟡 CAUTION / WET GRADE"
+                        : "🟢 CLEAR & PASSABLE"}
                     </span>
+                  </div>
+                  <div style={{ fontSize: "0.68rem", color: "#64748B" }}>
+                    Risk Index: {seg.risk_score.toFixed(2)} | Rain: {seg.factors.rainfall_mm} mm/h | Slope: {seg.factors.slope_deg}°
                   </div>
                 </div>
               </Tooltip>
@@ -263,39 +303,156 @@ export default function RiskMap({
                   </div>
 
                   <div className={styles.popupRiskRow}>
-                    <span>Risk Index:</span>
+                    <span>Passability Status:</span>
                     <strong style={{ color }}>
-                      {seg.risk_score.toFixed(2)} — {seg.risk_level}
+                      {isHighRisk
+                        ? "🔴 Severe Hazard / Reroute"
+                        : isMediumRisk
+                        ? "🟡 Drive With Caution"
+                        : "🟢 Safe for All Freight"}
                     </strong>
                   </div>
 
                   <div className={styles.factorsGrid}>
                     <div className={styles.factorItem}>
-                      <span className={styles.factorLabel}>Rainfall:</span>
-                      <span className={styles.factorVal}>
-                        {seg.factors.rainfall_mm} mm/h
-                      </span>
+                      <span className={styles.factorLabel}>Current Rain:</span>
+                      <span className={styles.factorVal}>{seg.factors.rainfall_mm} mm/h</span>
                     </div>
                     <div className={styles.factorItem}>
                       <span className={styles.factorLabel}>Terrain Slope:</span>
-                      <span className={styles.factorVal}>{seg.factors.slope_deg}°</span>
+                      <span className={styles.factorVal}>{seg.factors.slope_deg}° steep</span>
                     </div>
                     <div className={styles.factorItem}>
-                      <span className={styles.factorLabel}>Active Reports:</span>
-                      <span className={styles.factorVal}>
-                        {seg.factors.active_reports}
-                      </span>
+                      <span className={styles.factorLabel}>Field Flags:</span>
+                      <span className={styles.factorVal}>{seg.factors.active_reports} reports</span>
                     </div>
                     <div className={styles.factorItem}>
-                      <span className={styles.factorLabel}>Corridor Length:</span>
+                      <span className={styles.factorLabel}>Length:</span>
                       <span className={styles.factorVal}>{seg.length_km} km</span>
                     </div>
+                  </div>
+
+                  <div style={{ marginTop: "8px", fontSize: "0.72rem", color: "#475569" }}>
+                    {isHighRisk
+                      ? "⚠️ Geotechnical Advisory: Extreme slope + saturated soil. Multi-axle trucks must use alternate bypass."
+                      : isMediumRisk
+                      ? "⚡ Monsoon Advisory: Pavement wet, reduced traction. Keep speed under 35 km/h."
+                      : "✅ All clear: Road surface stable. Suitable for standard logistical transport."}
                   </div>
                 </div>
               </Popup>
             </Polyline>
           );
         })}
+
+        {/* Pulsing Hazard Warning Pins on High-Risk Roads */}
+        {showHazardPins &&
+          highHazardSegments.map((seg) => {
+            const midIdx = Math.floor(seg.coordinates.length / 2);
+            const pt = seg.coordinates[midIdx];
+            const hazardCoords: [number, number] = [pt[1], pt[0]];
+
+            const hazardIcon = L.divIcon({
+              className: "hazard-pin-icon",
+              html: `<div class="${styles.hazardPin}">⚠️</div>`,
+              iconSize: [26, 26],
+              iconAnchor: [13, 13],
+            });
+
+            return (
+              <Marker key={`hazard-${seg.id}`} position={hazardCoords} icon={hazardIcon}>
+                <Popup>
+                  <div className={styles.popupCard} style={{ maxWidth: "240px" }}>
+                    <h4 style={{ color: "#EF4444", margin: "0 0 4px 0", fontSize: "0.85rem" }}>
+                      ⚠️ Active Hazard Zone
+                    </h4>
+                    <p style={{ margin: "0 0 6px 0", fontSize: "0.75rem", fontWeight: 700 }}>
+                      {seg.name} ({seg.highway_ref})
+                    </p>
+                    <p style={{ margin: "0 0 6px 0", fontSize: "0.72rem", color: "#475569" }}>
+                      Risk Index: <strong style={{ color: "#EF4444" }}>{seg.risk_score.toFixed(2)}</strong>.
+                      Heavy rainfall ({seg.factors.rainfall_mm} mm/h) on a {seg.factors.slope_deg}° mountain grade.
+                    </p>
+                    <div style={{ fontSize: "0.7rem", background: "#FEF2F2", padding: "6px", borderRadius: "4px", color: "#991B1B" }}>
+                      ⚡ Reroute Recommended: AI Safe Route automatically routes around this corridor.
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
+
+        {/* Interactive Town / Logistics Hub Markers */}
+        {showTownHubs &&
+          KEY_HUBS.map((hub) => {
+            const hubIcon = L.divIcon({
+              className: "hub-marker-icon",
+              html: `<div class="${styles.hubMarkerCard}">
+                <span class="${styles.hubEmoji}">${hub.icon || "📍"}</span>
+                <span class="${styles.hubText}">${hub.name.split(" ")[0]}</span>
+              </div>`,
+              iconSize: [80, 26],
+              iconAnchor: [40, 13],
+            });
+
+            return (
+              <Marker key={hub.id} position={hub.coords} icon={hubIcon}>
+                <Popup>
+                  <div className={styles.popupCard} style={{ minWidth: "200px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
+                      <span style={{ fontSize: "1.2rem" }}>{hub.icon || "🏛️"}</span>
+                      <div>
+                        <h4 style={{ margin: 0, fontSize: "0.85rem" }}>{hub.name}</h4>
+                        <span style={{ fontSize: "0.68rem", color: "#64748B" }}>
+                          {hub.role} • {hub.elevation_m}m elevation
+                        </span>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: "6px", marginTop: "8px" }}>
+                      <button
+                        type="button"
+                        style={{
+                          flex: 1,
+                          padding: "4px 8px",
+                          fontSize: "0.7rem",
+                          fontWeight: 700,
+                          borderRadius: "4px",
+                          border: "1px solid #16A34A",
+                          background: "#DCFCE7",
+                          color: "#166534",
+                          cursor: "pointer",
+                        }}
+                        onClick={() => {
+                          if (onSelectHubAsOrigin) onSelectHubAsOrigin(hub);
+                        }}
+                      >
+                        Start Here 🟢
+                      </button>
+                      <button
+                        type="button"
+                        style={{
+                          flex: 1,
+                          padding: "4px 8px",
+                          fontSize: "0.7rem",
+                          fontWeight: 700,
+                          borderRadius: "4px",
+                          border: "1px solid #2563EB",
+                          background: "#DBEAFE",
+                          color: "#1E40AF",
+                          cursor: "pointer",
+                        }}
+                        onClick={() => {
+                          if (onSelectHubAsDest) onSelectHubAsDest(hub);
+                        }}
+                      >
+                        Destination 📍
+                      </button>
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
 
         {/* Shortest Route Overlay (Orange Dashed) */}
         {shortestRoute && shortestRoute.coordinates.length > 1 && (
@@ -305,10 +462,12 @@ export default function RiskMap({
               color: "#F97316",
               weight: 4,
               dashArray: "8, 10",
-              opacity: 0.7,
+              opacity: 0.75,
             }}
           >
-            <Tooltip sticky>Direct Shortest Route ({shortestRoute.distance_km} km, Risk: {shortestRoute.avg_risk})</Tooltip>
+            <Tooltip sticky>
+              Direct Shortest Road ({shortestRoute.distance_km} km, Exposure Risk: {shortestRoute.avg_risk})
+            </Tooltip>
           </Polyline>
         )}
 
@@ -323,7 +482,7 @@ export default function RiskMap({
             }}
           >
             <Tooltip sticky>
-              🛡️ Setu AI Safe Route ({safeRoute.distance_km} km, Risk: {safeRoute.avg_risk})
+              🛡️ Setu AI Safe Route ({safeRoute.distance_km} km, Safe Risk: {safeRoute.avg_risk})
             </Tooltip>
           </Polyline>
         )}
@@ -361,23 +520,52 @@ export default function RiskMap({
         )}
       </MapContainer>
 
-      {/* Map Legend */}
+      {/* Human-Friendly Map Legend */}
       <div className={styles.mapLegend}>
-        <div className={styles.legendTitle}>Corridor Risk Index</div>
+        <div className={styles.legendHeaderRow}>
+          <span className={styles.legendTitle}>Corridor Risk Index (Traffic Guide)</span>
+          <button
+            type="button"
+            className={styles.legendInfoBtn}
+            onClick={() => setShowExplainer(!showExplainer)}
+          >
+            {showExplainer ? "Hide Formula" : "ℹ️ How Risk Works"}
+          </button>
+        </div>
+
         <div className={styles.legendItems}>
           <div className={styles.legendItem}>
             <span className={styles.legendColor} style={{ background: "#22C55E" }} />
-            <span>Low (&lt; 0.40)</span>
+            <span><strong>🟢 Clear & Safe</strong>: Passable for all cargo</span>
           </div>
           <div className={styles.legendItem}>
             <span className={styles.legendColor} style={{ background: "#F59E0B" }} />
-            <span>Medium (0.40 - 0.70)</span>
+            <span><strong>🟡 Caution / Slippery</strong>: Heavy rain or steep grade</span>
           </div>
           <div className={styles.legendItem}>
             <span className={styles.legendColor} style={{ background: "#EF4444" }} />
-            <span>High (&ge; 0.70)</span>
+            <span><strong>🔴 High Hazard / Blocked</strong>: Landslide risk, detour</span>
+          </div>
+          <div className={styles.legendItem}>
+            <span className={styles.legendColor} style={{ background: "#06B6D4", height: "4px" }} />
+            <span><strong>🛡️ AI Safe Path</strong>: Geotechnically verified</span>
+          </div>
+          <div className={styles.legendItem}>
+            <span className={styles.legendColor} style={{ background: "#F97316", height: "3px", borderTop: "2px dashed #F97316" }} />
+            <span><strong>🟠 Direct Shortest</strong>: Passes danger zones</span>
           </div>
         </div>
+
+        {showExplainer && (
+          <div className={styles.legendExplainer}>
+            <strong>Why are roads color-coded?</strong><br />
+            Setu synthesizes 4 geotechnical factors in real time:<br />
+            🌧️ <span className={styles.explainerPill} style={{ background: "rgba(59, 130, 246, 0.2)", color: "#60A5FA" }}>35%</span> Rainfall telemetry<br />
+            ⛰️ <span className={styles.explainerPill} style={{ background: "rgba(245, 158, 11, 0.2)", color: "#FBBF24" }}>25%</span> Terrain slope steepness<br />
+            📋 <span className={styles.explainerPill} style={{ background: "rgba(239, 68, 68, 0.2)", color: "#F87171" }}>25%</span> Verified field incident reports<br />
+            🛡️ <span className={styles.explainerPill} style={{ background: "rgba(34, 197, 94, 0.2)", color: "#4ADE80" }}>15%</span> Historical vulnerability
+          </div>
+        )}
       </div>
     </div>
   );

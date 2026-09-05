@@ -330,16 +330,17 @@ export default function VerificationQueueView({
                     onClick={() => handleDecrypt(report.id)}
                     style={{
                       marginTop: "8px",
-                      background: "rgba(16,185,129,0.15)",
-                      border: "1px solid rgba(16,185,129,0.4)",
-                      color: "#a7f3d0",
-                      padding: "4px 10px",
+                      background: "rgba(10, 104, 71, 0.1)",
+                      border: "1px solid var(--color-primary-light)",
+                      color: "var(--color-primary)",
+                      padding: "5px 12px",
                       borderRadius: "6px",
-                      fontSize: "0.72rem",
+                      fontSize: "0.75rem",
+                      fontWeight: 700,
                       cursor: "pointer",
                       display: "flex",
                       alignItems: "center",
-                      gap: "4px",
+                      gap: "6px",
                     }}
                   >
                     <span>🔒</span> Decrypt Field Payload
@@ -391,10 +392,11 @@ export default function VerificationQueueView({
                       width: "100%",
                       padding: "8px",
                       borderRadius: "8px",
-                      background: "rgba(255,255,255,0.05)",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      color: "rgba(255,255,255,0.5)",
+                      background: "var(--color-bg)",
+                      border: "1px solid var(--color-border)",
+                      color: "var(--color-text-muted)",
                       fontSize: "0.8rem",
+                      fontWeight: 600,
                       cursor: "default",
                     }}
                   >

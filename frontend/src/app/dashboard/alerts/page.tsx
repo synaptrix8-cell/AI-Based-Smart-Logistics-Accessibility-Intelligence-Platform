@@ -1,10 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import VerificationQueueView from "@/components/dashboard/VerificationQueueView";
-import styles from "./reports.module.css";
+import AlertsView from "@/components/dashboard/AlertsView";
+import styles from "./alerts.module.css";
 
-export default async function ReportsPage({
+export default async function AlertsPage({
   searchParams,
 }: {
   searchParams?: Promise<{ demo?: string }>;
@@ -61,10 +61,10 @@ export default async function ReportsPage({
             <a href="/dashboard" className={styles.navLink}>
               🗺️ GIS Risk Map
             </a>
-            <a href="/dashboard/reports" className={styles.navLink} data-active="true">
+            <a href="/dashboard/reports" className={styles.navLink}>
               📋 Reports
             </a>
-            <a href="/dashboard/alerts" className={styles.navLink}>
+            <a href="/dashboard/alerts" className={styles.navLink} data-active="true">
               🔔 Alerts
             </a>
           </nav>
@@ -90,7 +90,7 @@ export default async function ReportsPage({
         </div>
       </header>
 
-      <VerificationQueueView isDemo={isDemoMode} />
+      <AlertsView />
     </main>
   );
 }

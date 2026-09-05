@@ -21,7 +21,10 @@ export default function LiveDashboardView() {
   const [shortestRoute, setShortestRoute] = useState<RouteOverlay | null>(null);
   const [originCoords, setOriginCoords] = useState<[number, number] | null>(null);
   const [destCoords, setDestCoords] = useState<[number, number] | null>(null);
+  const [originHubId, setOriginHubId] = useState<string>("nongpoh");
+  const [destHubId, setDestHubId] = useState<string>("cherrapunji");
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
+  const [dismissAdvisory, setDismissAdvisory] = useState<boolean>(false);
 
   const handleRouteCalculated = (
     safe: RouteOverlay | null,
@@ -41,6 +44,68 @@ export default function LiveDashboardView() {
 
   return (
     <div className={styles.container}>
+      {/* Active Regional Hazard Advisory Banner (Phase 4 integration) */}
+      {!dismissAdvisory && (
+        <div
+          style={{
+            background: "linear-gradient(90deg, #FEF2F2 0%, #FFFBEB 100%)",
+            border: "1px solid #FCA5A5",
+            borderRadius: "12px",
+            padding: "10px 16px",
+            marginBottom: "12px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            boxShadow: "0 2px 6px rgba(239, 68, 68, 0.1)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontSize: "1.2rem" }}>🚨</span>
+            <div>
+              <strong style={{ color: "#991B1B", fontSize: "0.85rem" }}>
+                Active Regional Hazard Advisory: East Khasi Hills (Cherrapunji & NH-6 Sectors)
+              </strong>
+              <div style={{ color: "#78350F", fontSize: "0.75rem" }}>
+                3 corridors flagged with heavy precipitation (&gt;35mm/h) and steep slope saturation. Click any town on the map to calculate a hazard-free safe detour.
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <button
+              type="button"
+              style={{
+                background: "#DC2626",
+                color: "#FFFFFF",
+                border: "none",
+                borderRadius: "6px",
+                padding: "5px 12px",
+                fontSize: "0.75rem",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+              onClick={() => setRiskFilter("HIGH")}
+            >
+              Filter Hazards ({highRiskCount})
+            </button>
+            <button
+              type="button"
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#9CA3AF",
+                fontSize: "1.1rem",
+                cursor: "pointer",
+                padding: "2px 6px",
+              }}
+              onClick={() => setDismissAdvisory(true)}
+              title="Dismiss banner"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Risk Filter Bar */}
       <div className={styles.filterBar}>
         <div className={styles.filterGroup}>
@@ -92,6 +157,8 @@ export default function LiveDashboardView() {
             originHubCoords={originCoords}
             destHubCoords={destCoords}
             filterRiskLevel={riskFilter}
+            onSelectHubAsOrigin={(hub) => setOriginHubId(hub.id)}
+            onSelectHubAsDest={(hub) => setDestHubId(hub.id)}
           />
 
           {/* Selected Segment Inspection Drawer */}
@@ -174,7 +241,13 @@ export default function LiveDashboardView() {
 
         {/* Right Sidebar: AI Safe Route Planner */}
         <div className={styles.sidebarColumn}>
-          <RoutePlanner onRouteCalculated={handleRouteCalculated} />
+          <RoutePlanner
+            onRouteCalculated={handleRouteCalculated}
+            selectedOriginId={originHubId}
+            selectedDestId={destHubId}
+            onOriginChange={(id) => setOriginHubId(id)}
+            onDestChange={(id) => setDestHubId(id)}
+          />
         </div>
       </div>
 

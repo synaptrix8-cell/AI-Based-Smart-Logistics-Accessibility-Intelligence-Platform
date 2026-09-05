@@ -99,41 +99,200 @@
 /* Map legend */
 .mapLegend {
   position: absolute;
-  bottom: var(--space-lg);
-  left: var(--space-lg);
+  bottom: var(--space-md);
+  left: var(--space-md);
   z-index: 1000;
-  background: rgba(15, 23, 42, 0.9);
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(15, 23, 42, 0.94);
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   color: white;
   font-size: var(--text-xs);
-  backdrop-filter: blur(8px);
-  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  max-width: 320px;
+}
+
+.legendHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
 }
 
 .legendTitle {
+  font-weight: 800;
+  color: #F8FAFC;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+}
+
+.legendInfoBtn {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #38BDF8;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.65rem;
   font-weight: 700;
-  margin-bottom: var(--space-xs);
-  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.legendInfoBtn:hover {
+  background: rgba(56, 189, 248, 0.25);
+  color: #fff;
 }
 
 .legendItems {
   display: flex;
-  gap: var(--space-md);
+  flex-direction: column;
+  gap: 6px;
 }
 
 .legendItem {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.7rem;
+  gap: 8px;
+  font-size: 0.72rem;
 }
 
 .legendColor {
-  width: 14px;
-  height: 6px;
-  border-radius: 2px;
+  width: 16px;
+  height: 8px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.legendExplainer {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  font-size: 0.68rem;
+  color: #94A3B8;
+  line-height: 1.4;
+}
+
+.explainerPill {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 700;
+  margin-right: 4px;
+  font-size: 0.65rem;
+}
+
+/* Hub and Hazard Marker Classes */
+:global(.hub-marker-icon) {
+  background: transparent !important;
+  border: none !important;
+}
+
+.hubMarkerCard {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #FFFFFF;
+  border: 2px solid #0A6847;
+  border-radius: 20px;
+  padding: 2px 8px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  white-space: nowrap;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hubMarkerCard:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+  border-color: #16A34A;
+}
+
+.hubEmoji {
+  font-size: 0.85rem;
+}
+
+.hubText {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #0F172A;
+}
+
+:global(.hazard-pin-icon) {
+  background: transparent !important;
+  border: none !important;
+}
+
+.hazardPin {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #EF4444;
+  border: 2px solid #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 900;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.8);
+  animation: hazardPulse 1.5s infinite;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+}
+
+@keyframes hazardPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.95);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.8);
+  }
+  70% {
+    transform: translate(-50%, -50%) scale(1.15);
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(0.95);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+/* Map Quick Filter Pill Bar */
+.mapQuickControls {
+  position: absolute;
+  top: var(--space-md);
+  left: var(--space-md);
+  z-index: 1000;
+  display: flex;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.88);
+  padding: 6px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-sm);
+}
+
+.controlPill {
+  background: transparent;
+  border: none;
+  color: #94A3B8;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.controlPill:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.activeControlPill {
+  background: #0A6847;
+  color: #FFFFFF !important;
 }
 
 /* Tooltip & Popups */
