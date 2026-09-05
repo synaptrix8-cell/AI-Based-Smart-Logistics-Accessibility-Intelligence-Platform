@@ -6,6 +6,8 @@ Pilot Region: East Khasi Hills District, Meghalaya (Shillong, Cherrapunji, Dawki
 
 Live Application: https://frontend-ecru-seven-70.vercel.app  
 Demo Dashboard: https://frontend-ecru-seven-70.vercel.app/dashboard?demo=true  
+Reports Queue: https://frontend-ecru-seven-70.vercel.app/dashboard/reports?demo=true  
+Alerts Console: https://frontend-ecru-seven-70.vercel.app/dashboard/alerts?demo=true  
 
 ## 1. Problem Overview
 
