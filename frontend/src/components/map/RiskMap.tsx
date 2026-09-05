@@ -519,50 +519,62 @@ export default function RiskMap({
         )}
       </MapContainer>
 
-      {/* Human-Friendly Map Legend */}
-      <div className={styles.mapLegend}>
-        <div className={styles.legendHeaderRow}>
-          <span className={styles.legendTitle}>Corridor Risk Index (Traffic Guide)</span>
-          <button
-            type="button"
-            className={styles.legendInfoBtn}
-            onClick={() => setShowExplainer(!showExplainer)}
-          >
-            {showExplainer ? "Hide Formula" : "ℹ️ How Risk Works"}
-          </button>
+      {/* Sleek, Compact & Non-Intrusive Map Legend Bar */}
+      <div className={styles.compactLegendBar}>
+        <div className={styles.compactLegendItems}>
+          <div className={styles.compactLegendItem}>
+            <span className={styles.legendColorDot} style={{ background: "#22C55E" }} />
+            <span>Safe</span>
+          </div>
+          <div className={styles.compactLegendItem}>
+            <span className={styles.legendColorDot} style={{ background: "#F59E0B" }} />
+            <span>Caution</span>
+          </div>
+          <div className={styles.compactLegendItem}>
+            <span className={styles.legendColorDot} style={{ background: "#EF4444" }} />
+            <span>Hazard</span>
+          </div>
+          <div className={styles.compactLegendDivider} />
+          <div className={styles.compactLegendItem}>
+            <span className={styles.legendColorLine} style={{ background: "#06B6D4" }} />
+            <span>AI Safe</span>
+          </div>
+          <div className={styles.compactLegendItem}>
+            <span className={styles.legendColorLine} style={{ background: "#F97316", borderTop: "2px dashed #F97316" }} />
+            <span>Shortest</span>
+          </div>
         </div>
 
-        <div className={styles.legendItems}>
-          <div className={styles.legendItem}>
-            <span className={styles.legendColor} style={{ background: "#22C55E" }} />
-            <span><strong>🟢 Clear & Safe</strong>: Passable for all cargo</span>
-          </div>
-          <div className={styles.legendItem}>
-            <span className={styles.legendColor} style={{ background: "#F59E0B" }} />
-            <span><strong>🟡 Caution / Slippery</strong>: Heavy rain or steep grade</span>
-          </div>
-          <div className={styles.legendItem}>
-            <span className={styles.legendColor} style={{ background: "#EF4444" }} />
-            <span><strong>🔴 High Hazard / Blocked</strong>: Landslide risk, detour</span>
-          </div>
-          <div className={styles.legendItem}>
-            <span className={styles.legendColor} style={{ background: "#06B6D4", height: "4px" }} />
-            <span><strong>🛡️ AI Safe Path</strong>: Geotechnically verified</span>
-          </div>
-          <div className={styles.legendItem}>
-            <span className={styles.legendColor} style={{ background: "#F97316", height: "3px", borderTop: "2px dashed #F97316" }} />
-            <span><strong>🟠 Direct Shortest</strong>: Passes danger zones</span>
-          </div>
-        </div>
+        <button
+          type="button"
+          className={styles.compactLegendBtn}
+          onClick={() => setShowExplainer(!showExplainer)}
+          title="Toggle corridor risk guide"
+        >
+          {showExplainer ? "✕ Close" : "ℹ️ Guide"}
+        </button>
 
         {showExplainer && (
-          <div className={styles.legendExplainer}>
-            <strong>Why are roads color-coded?</strong><br />
-            Setu synthesizes 4 geotechnical factors in real time:<br />
-            🌧️ <span className={styles.explainerPill} style={{ background: "rgba(59, 130, 246, 0.2)", color: "#60A5FA" }}>35%</span> Rainfall telemetry<br />
-            ⛰️ <span className={styles.explainerPill} style={{ background: "rgba(245, 158, 11, 0.2)", color: "#FBBF24" }}>25%</span> Terrain slope steepness<br />
-            📋 <span className={styles.explainerPill} style={{ background: "rgba(239, 68, 68, 0.2)", color: "#F87171" }}>25%</span> Verified field incident reports<br />
-            🛡️ <span className={styles.explainerPill} style={{ background: "rgba(34, 197, 94, 0.2)", color: "#4ADE80" }}>15%</span> Historical vulnerability
+          <div className={styles.legendPopover}>
+            <div className={styles.popoverTitle}>Road Safety & Routing Guide</div>
+            <div className={styles.popoverRow}>
+              <strong style={{ color: "#22C55E" }}>🟢 Clear & Safe:</strong> Passable for all freight vehicles.
+            </div>
+            <div className={styles.popoverRow}>
+              <strong style={{ color: "#F59E0B" }}>🟡 Caution / Wet:</strong> Heavy rain or steep grade (&lt;35 km/h).
+            </div>
+            <div className={styles.popoverRow}>
+              <strong style={{ color: "#EF4444" }}>🔴 Hazard / Blocked:</strong> Landslide or slope failure. Detour advised.
+            </div>
+            <div className={styles.popoverRow}>
+              <strong style={{ color: "#06B6D4" }}>🛡️ Setu AI Safe Route:</strong> Geotechnically routed bypass avoiding hazards.
+            </div>
+            <div className={styles.popoverRow}>
+              <strong style={{ color: "#F97316" }}>🟠 Direct Shortest:</strong> Shortest distance road (crosses hazards).
+            </div>
+            <div className={styles.popoverFormula}>
+              <strong>Risk Weighting:</strong> 35% Rain + 25% Slope + 25% Incidents + 15% History.
+            </div>
           </div>
         )}
       </div>

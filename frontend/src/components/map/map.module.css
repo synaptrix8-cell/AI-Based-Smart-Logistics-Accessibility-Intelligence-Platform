@@ -97,80 +97,131 @@
 }
 
 /* Map legend */
-.mapLegend {
+/* Compact, non-intrusive map legend */
+.compactLegendBar {
   position: absolute;
   bottom: var(--space-md);
   left: var(--space-md);
   z-index: 1000;
-  background: rgba(15, 23, 42, 0.94);
-  padding: 12px 16px;
-  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(15, 23, 42, 0.90);
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
-  font-size: var(--text-xs);
+  color: #FFFFFF;
   backdrop-filter: blur(12px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  max-width: 320px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
-.legendHeaderRow {
+.compactLegendItems {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
+  gap: 10px;
 }
 
-.legendTitle {
-  font-weight: 800;
-  color: #F8FAFC;
-  font-size: 0.8rem;
-  letter-spacing: 0.02em;
-}
-
-.legendInfoBtn {
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  color: #38BDF8;
-  border-radius: 4px;
-  padding: 2px 6px;
-  font-size: 0.65rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.legendInfoBtn:hover {
-  background: rgba(56, 189, 248, 0.25);
-  color: #fff;
-}
-
-.legendItems {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.legendItem {
+.compactLegendItem {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
   font-size: 0.72rem;
+  font-weight: 700;
+  color: #F1F5F9;
+  white-space: nowrap;
 }
 
-.legendColor {
-  width: 16px;
-  height: 8px;
-  border-radius: 3px;
+.legendColorDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+}
+
+.legendColorLine {
+  width: 14px;
+  height: 4px;
+  border-radius: 2px;
   flex-shrink: 0;
 }
 
-.legendExplainer {
-  margin-top: 10px;
-  padding-top: 8px;
+.compactLegendDivider {
+  width: 1px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.compactLegendBtn {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #38BDF8;
+  border-radius: 12px;
+  padding: 3px 8px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.compactLegendBtn:hover {
+  background: rgba(56, 189, 248, 0.3);
+  color: #FFFFFF;
+  border-color: #38BDF8;
+}
+
+.legendPopover {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 0;
+  width: 320px;
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(14px);
+  z-index: 1010;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: fadeIn 0.18s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.popoverTitle {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #F8FAFC;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  padding-bottom: 5px;
+  margin-bottom: 2px;
+}
+
+.popoverRow {
+  font-size: 0.7rem;
+  color: #CBD5E1;
+  line-height: 1.35;
+}
+
+.popoverFormula {
+  margin-top: 4px;
+  padding-top: 6px;
   border-top: 1px solid rgba(255, 255, 255, 0.15);
   font-size: 0.68rem;
   color: #94A3B8;
-  line-height: 1.4;
+  line-height: 1.35;
 }
 
 .explainerPill {
