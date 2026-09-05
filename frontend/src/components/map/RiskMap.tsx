@@ -79,6 +79,9 @@ export default function RiskMap({
   const [segments, setSegments] = useState<RoadSegmentData[]>(EAST_KHASI_HILLS_SEGMENTS);
   const [isClient, setIsClient] = useState(false);
   const [activeRealtimeUpdates, setActiveRealtimeUpdates] = useState(0);
+  const [showExplainer, setShowExplainer] = useState(false);
+  const [showTownHubs, setShowTownHubs] = useState(true);
+  const [showHazardPins, setShowHazardPins] = useState(true);
 
   useEffect(() => {
     setIsClient(true);
@@ -169,10 +172,6 @@ export default function RiskMap({
       </div>
     );
   }
-
-  const [showExplainer, setShowExplainer] = useState(false);
-  const [showTownHubs, setShowTownHubs] = useState(true);
-  const [showHazardPins, setShowHazardPins] = useState(true);
 
   // Filter segments
   const displayedSegments = segments.filter((s) => {

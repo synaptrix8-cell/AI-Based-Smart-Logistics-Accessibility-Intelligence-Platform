@@ -245,6 +245,9 @@ export default function LoginForm() {
         </p>
         <a
           href="/dashboard?demo=true"
+          onClick={() => {
+            document.cookie = "setu_demo=true; path=/; max-age=86400; SameSite=Lax";
+          }}
           className="btn btn-secondary"
           style={{ width: "100%", display: "inline-block", textAlign: "center", fontSize: "0.9rem" }}
         >

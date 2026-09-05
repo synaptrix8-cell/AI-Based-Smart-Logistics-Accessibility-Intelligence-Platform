@@ -13,23 +13,33 @@ export default async function AlertsPage({
   const cookieStore = await cookies();
   const isDemoMode = params.demo === "true" || cookieStore.get("setu_demo")?.value === "true";
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user = null;
+  let supabase = null;
+  try {
+    supabase = await createClient();
+    const res = await supabase.auth.getUser();
+    user = res?.data?.user ?? null;
+  } catch (err) {
+    console.warn("Supabase auth check fallback:", err);
+    user = null;
+  }
 
   if (!user && !isDemoMode) {
     redirect("/login");
   }
 
   let profile = null;
-  if (user) {
-    const { data } = await supabase
-      .from("users")
-      .select("*, districts(name)")
-      .eq("id", user.id)
-      .single();
-    profile = data;
+  if (user && supabase) {
+    try {
+      const { data } = await supabase
+        .from("users")
+        .select("*, districts(name)")
+        .eq("id", user.id)
+        .single();
+      profile = data;
+    } catch {
+      profile = null;
+    }
   }
 
   const role = profile?.role || (isDemoMode ? "official" : "reporter");

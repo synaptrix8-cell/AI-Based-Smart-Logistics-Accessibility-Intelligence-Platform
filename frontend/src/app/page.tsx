@@ -25,11 +25,14 @@ export default function HomePage() {
         </p>
 
         <div className={styles.ctas}>
-          <a href="/signup" className="btn btn-primary btn-lg">
-            Get Started →
+          <a href="/dashboard?demo=true" className="btn btn-primary btn-lg">
+            ⚡ Instant Live Demo →
           </a>
           <a href="/login" className="btn btn-secondary btn-lg">
-            Log In
+            Log In / Sign In
+          </a>
+          <a href="/signup" className="btn btn-secondary btn-lg">
+            Register Account
           </a>
         </div>
 
