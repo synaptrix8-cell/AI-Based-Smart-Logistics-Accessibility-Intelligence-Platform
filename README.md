@@ -1,4 +1,4 @@
-# 🌉 Setu — Smart Logistics & Accessibility Intelligence Platform
+# 🌉 Setu - Smart Logistics & Accessibility Intelligence Platform
 
 > AI-Based Smart Logistics and Accessibility Intelligence Platform for India's North Eastern Region (SIH26002)
 
