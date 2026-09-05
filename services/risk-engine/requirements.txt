@@ -1,0 +1,36 @@
+# Setu Risk Engine — Python Dependencies
+# ========================================
+
+# --- Web Framework ---
+fastapi==0.115.12
+uvicorn[standard]==0.34.3
+
+# --- Configuration ---
+pydantic==2.11.3
+pydantic-settings==2.9.1
+
+# --- Auth / JWT ---
+python-jose[cryptography]==3.4.0
+
+# --- Routing & Graph ---
+networkx==3.4.2
+osmnx==2.0.2
+shapely==2.1.1
+
+# --- Risk Model (Phase 2) ---
+scikit-learn==1.6.1
+numpy==2.2.6
+
+# --- Database ---
+supabase==2.15.2
+httpx==0.28.1
+
+# --- Rate Limiting ---
+slowapi==0.1.9
+
+# --- Logging ---
+structlog==25.4.0
+
+# --- Utilities ---
+python-dotenv==1.1.0
+geopy==2.4.1

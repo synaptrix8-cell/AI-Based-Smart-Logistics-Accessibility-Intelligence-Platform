@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="40" fill="#0A6847"/>
+  <path d="M48 130 L96 50 L144 130 M68 110 L96 65 L124 110" stroke="white" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <text x="96" y="170" text-anchor="middle" fill="white" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">SETU</text>
+</svg>
