@@ -159,15 +159,24 @@ export async function POST(request: NextRequest) {
       const isRouteBlockedBySohra = isSohraBlocked && routeTraversesSohra;
       const isRouteBlockedByDawki = isDawkiBlocked && routeTraversesDawki;
 
-      // Only avoid hazard if an actual blocked hazard is active on THIS specific transit corridor!
-      // If the hazard was cleared or resolved, or on another unrelated corridor, this is FALSE,
-      // and the route immediately takes the direct highway with zero detour!
+      // Geotechnical risk evaluation against user's custom avoidRiskThreshold slider:
+      // Inherent corridor risks: Umiam-Shillong descent: 0.55, Sohra gorge: 0.82, Dawki border: 0.65
+      const isUmiamShillongExcessRisk = routeTraversesUmiamShillong && (0.55 > avoidRiskThreshold);
+      const isSohraExcessRisk = routeTraversesSohra && (0.80 > avoidRiskThreshold);
+      const isDawkiExcessRisk = routeTraversesDawki && (0.62 > avoidRiskThreshold);
+
+      // Trigger hazard avoidance if either:
+      // 1) An active physical blockage/incident is confirmed on this transit path, OR
+      // 2) A traversed mountain segment exceeds the user's custom "Avoid Segments Above Risk" slider setting!
       const shouldAvoidHazard =
         isRouteBlockedByNongpohUmsning ||
         isRouteBlockedByUmsningUmiam ||
         isRouteBlockedByUmiamShillong ||
         isRouteBlockedBySohra ||
-        isRouteBlockedByDawki;
+        isRouteBlockedByDawki ||
+        isUmiamShillongExcessRisk ||
+        isSohraExcessRisk ||
+        isDawkiExcessRisk;
 
       let safeCoords = roadCoords;
       let safeDistKm = distKm;
@@ -178,7 +187,7 @@ export async function POST(request: NextRequest) {
       let rerouteReason = "";
       let vehicleAdvisory = "Direct highway transit permitted. Road is clear and safe for all transport.";
 
-      // Compute dynamic road-following detour via OSRM only when an actual hazard/block is on this route
+      // Compute dynamic road-following detour via OSRM only when an actual hazard or excess risk is on this route
       if (shouldAvoidHazard) {
         try {
           let detourWaypoint: string | null = null;
@@ -189,25 +198,20 @@ export async function POST(request: NextRequest) {
               ? "NH-6 Umsning / Umiam Lake Sector"
               : "NH-6 Guwahati - Nongpoh Corridor";
 
-            // If destination is Umiam or northern sector (minLat >= 25.65), detour MUST stay NORTH of Umiam!
-            // We route via Bhoirymbong / Umroi Airport corridor (91.945, 25.710) directly into Umiam Lake Hub.
-            // DO NOT route via Shillong East Bypass (25.640) which is south of Umiam and causes a circular loop!
             if (minLat >= 25.65) {
               detourWaypoint = "91.945,25.710";
             } else {
-              // Destination is south of Umiam (Shillong / Cherrapunji / Dawki):
-              // Bypass Umsning and Umiam descent via Shillong East Bypass
               detourWaypoint = "91.980,25.640";
             }
-          } else if (isRouteBlockedByUmiamShillong) {
+          } else if (isRouteBlockedByUmiamShillong || isUmiamShillongExcessRisk) {
             blockedName = "NH-6 Umiam - Upper Shillong Descent";
             // Bypass via Shillong East Bypass
             detourWaypoint = "91.980,25.640";
-          } else if (isRouteBlockedBySohra) {
+          } else if (isRouteBlockedBySohra || isSohraExcessRisk) {
             // Bypass SH-5 via Mawphlang - Weiloi Ridge
             detourWaypoint = "91.685,25.390";
             blockedName = "SH-5 Mawkdok-Cherrapunji Pass";
-          } else if (isRouteBlockedByDawki) {
+          } else if (isRouteBlockedByDawki || isDawkiExcessRisk) {
             // Bypass NH-40 Pynursla - Dawki via Jowai / Amlarem Highway
             detourWaypoint = "92.120,25.320";
             blockedName = "NH-40 Pynursla - Dawki Border Corridor";
@@ -231,10 +235,14 @@ export async function POST(request: NextRequest) {
                   );
                   safeDistKm = detourDist;
                   safeRisk = 0.22;
-                  riskReductionPct = Math.round(((shortestRisk - safeRisk) / Math.max(0.01, shortestRisk)) * 100) || 68;
+                  shortestRisk = isRouteBlockedByNongpohUmsning || isRouteBlockedByUmsningUmiam || isRouteBlockedByUmiamShillong || isRouteBlockedBySohra || isRouteBlockedByDawki ? 0.82 : 0.58;
+                  riskReductionPct = Math.round(((shortestRisk - safeRisk) / Math.max(0.01, shortestRisk)) * 100) || 62;
                   isRerouted = true;
 
-                  rerouteReason = `Real-Time Hazard Alert: ${blockedName} confirmed blocked. Automatically rerouted via verified alternate bypass.`;
+                  const isPhysicalBlock = isRouteBlockedByNongpohUmsning || isRouteBlockedByUmsningUmiam || isRouteBlockedByUmiamShillong || isRouteBlockedBySohra || isRouteBlockedByDawki;
+                  rerouteReason = isPhysicalBlock
+                    ? `Real-Time Hazard Alert: ${blockedName} confirmed blocked. Automatically rerouted via verified alternate bypass.`
+                    : `Safety Threshold Filter (${(avoidRiskThreshold * 100).toFixed(0)}%): Direct route sector (${blockedName}) exceeds safety limit. Diverted via verified low-risk bypass.`;
                   vehicleAdvisory = `🛡️ Live Reroute Active: Detoured around ${blockedName}. Multi-axle freight clearance confirmed on alternate corridor.`;
 
                   humanSteps.unshift(

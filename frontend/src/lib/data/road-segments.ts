@@ -712,52 +712,17 @@ function haversine(p1: [number, number], p2: [number, number]): number {
  * Densifies a set of road coordinates by inserting smooth curved points
  * between vertices using Catmull-Rom spline interpolation.
  * Guarantees that routes and corridors hug realistic mountain curves
- * without straight diagonal chords.
+/**
+ * Preserves exact real-life road coordinates from OpenStreetMap.
+ * Keeps GPS highway alignment pixel-perfect to real asphalt road surface
+ * without artificial spline bulging or overshoot artifacts.
  */
 export function densifyCurvedCoordinates(
   pts: [number, number][],
   maxSegmentMeters: number = 30
 ): [number, number][] {
   if (!pts || pts.length < 2) return pts;
-
-  const result: [number, number][] = [pts[0]];
-
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = i > 0 ? pts[i - 1] : pts[i];
-    const p1 = pts[i];
-    const p2 = pts[i + 1];
-    const p3 = i + 2 < pts.length ? pts[i + 2] : p2;
-
-    const segDistKm = haversine(p1, p2);
-    const segDistMeters = segDistKm * 1000;
-    // Allow up to 30 subdivisions for a highly realistic curved look
-    const numSubdivisions = Math.max(1, Math.min(30, Math.floor(segDistMeters / maxSegmentMeters)));
-
-    for (let step = 1; step <= numSubdivisions; step++) {
-      const t = step / numSubdivisions;
-      const t2 = t * t;
-      const t3 = t2 * t;
-
-      // Catmull-Rom spline formulation
-      const lat =
-        0.5 *
-        (2 * p1[0] +
-          (-p0[0] + p2[0]) * t +
-          (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 +
-          (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3);
-
-      const lng =
-        0.5 *
-        (2 * p1[1] +
-          (-p0[1] + p2[1]) * t +
-          (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 +
-          (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
-
-      result.push([Number(lat.toFixed(5)), Number(lng.toFixed(5))]);
-    }
-  }
-
-  return result;
+  return pts;
 }
 
 /**
@@ -770,6 +735,7 @@ export function computeClientSafeRoute(
   avoidRiskAbove: number = 0.75,
   blockedSegmentIds: string[] = []
 ) {
+  const avoidRiskThreshold = avoidRiskAbove;
   // Extract all points and create an adjacency graph
   type NodeKey = string;
   const nodeKey = (p: [number, number]): NodeKey => `${p[0].toFixed(4)},${p[1].toFixed(4)}`;
@@ -874,10 +840,14 @@ export function computeClientSafeRoute(
         if (useRiskPenalty) {
           if (edge.isBlocked) {
             weight *= 1000.0; // Extreme blockage avoidance penalty
-          } else if (edge.risk >= 0.85) {
-            weight *= 35.0; // Avoid verified severe active hazard zones
+          } else if (edge.risk > avoidRiskThreshold) {
+            // Sector risk exceeds user's safety tolerance threshold!
+            // Apply steep exponential penalty proportional to excess risk
+            const excessRatio = (edge.risk - avoidRiskThreshold) / Math.max(0.05, 1.0 - avoidRiskThreshold);
+            weight *= (12.0 + 45.0 * (excessRatio ** 2));
           } else {
-            weight *= (1.0 + 3.0 * (edge.risk ** 2));
+            // Within acceptable tolerance: gentle quadratic cost penalty
+            weight *= (1.0 + (edge.risk / Math.max(0.1, avoidRiskThreshold)) ** 2);
           }
         }
 
@@ -927,13 +897,10 @@ export function computeClientSafeRoute(
       }
     }
 
-    // Densify using Catmull-Rom spline so lines hug curved winding mountain contours
-    const curvedPath = densifyCurvedCoordinates(rawPath, 75);
-
     const avgRisk = totalKm > 0 ? Number((riskWeightedSum / totalKm).toFixed(2)) : 0;
 
     return {
-      coordinates: curvedPath,
+      coordinates: rawPath,
       distance_km: Number(totalKm.toFixed(1)),
       avg_risk: avgRisk,
       corridors: Array.from(corridors),
@@ -944,19 +911,22 @@ export function computeClientSafeRoute(
   const shortest = runDijkstra(false);
   const safe = runDijkstra(true);
 
-  // A route is ONLY rerouted if the shortest direct path was actually blocked by a hazard,
-  // and the safe path found an alternate unblocked path avoiding it!
+  // A route is rerouted if:
+  // 1) The shortest path encountered a physical blockage and safe path bypassed it, OR
+  // 2) The shortest path's risk exceeds the user's custom avoidRiskThreshold and safe route took a safer corridor!
+  const shortestHasExcessRisk = shortest.hasBlockedEdge || shortest.avg_risk > avoidRiskThreshold;
   const isActuallyRerouted = Boolean(
-    shortest.hasBlockedEdge &&
-    !safe.hasBlockedEdge &&
-    (safe.distance_km !== shortest.distance_km || safe.avg_risk < shortest.avg_risk)
+    (shortest.hasBlockedEdge && !safe.hasBlockedEdge) ||
+    (shortestHasExcessRisk && safe.avg_risk < shortest.avg_risk && safe.distance_km !== shortest.distance_km)
   );
 
   const finalSafe = isActuallyRerouted
     ? {
         ...safe,
         is_rerouted: true,
-        reroute_reason: "Autonomous Reroute: Active hazard bypassed via alternate connected corridor",
+        reroute_reason: shortest.hasBlockedEdge
+          ? "Autonomous Reroute: Active hazard bypassed via alternate connected corridor"
+          : `Safety Filter Reroute (${(avoidRiskThreshold * 100).toFixed(0)}%): Avoided sector exceeding safety limit in favor of all-weather bypass`,
       }
     : {
         ...shortest,

@@ -174,6 +174,17 @@ export default function RoutePlanner({
     }
   }, [blockedSegmentIds, lastResult]);
 
+  // Auto re-compute whenever avoidRiskThreshold slider moves and a route is already calculated
+  const prevThresholdRef = useRef<number>(avoidRiskThreshold);
+  useEffect(() => {
+    if (prevThresholdRef.current !== avoidRiskThreshold) {
+      prevThresholdRef.current = avoidRiskThreshold;
+      if (lastResult) {
+        computeRef.current();
+      }
+    }
+  }, [avoidRiskThreshold, lastResult]);
+
   // Immediately recompute route when a hazard is officially verified or fixed
   useEffect(() => {
     const handleRecomputeOnEvent = () => {
