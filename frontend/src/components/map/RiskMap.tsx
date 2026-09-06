@@ -472,6 +472,12 @@ export default function RiskMap({
   const handleLocalResolve = (incidentId: string, corridorId?: string) => {
     const now = new Date();
     const resolvedTimeString = formatIncidentDate(now.toISOString());
+    const corrId = corridorId || "seg-002";
+    
+    // Call the parent handler so the global route recalculates!
+    if (onResolveHazard) {
+      onResolveHazard(corrId, incidentId);
+    }
 
     // Persist to localStorage immediately
     try {
@@ -495,7 +501,6 @@ export default function RiskMap({
       }
     } catch {}
 
-    const corrId = corridorId || "seg-002";
     setSegments((prev) =>
       prev.map((s) => {
         if (s.id === corrId) {
@@ -815,7 +820,7 @@ export default function RiskMap({
         {/* Road Segments */}
         {displayedSegments.map((seg) => {
           const rawLatLngs = seg.coordinates.map((c) => [c[1], c[0]] as [number, number]);
-          const latLngs = densifyCurvedCoordinates(rawLatLngs, 75);
+          const latLngs = densifyCurvedCoordinates(rawLatLngs, 15);
           const isBlocked = blockedSegmentIds?.includes(seg.id);
           const effectiveRisk = isBlocked ? 0.98 : seg.risk_score;
           const color = isBlocked ? "#DC2626" : getRiskColor(effectiveRisk);
@@ -1088,7 +1093,7 @@ export default function RiskMap({
         {/* Shortest Route Overlay — Only show when an active detour around a blocked hazard is applied */}
         {shortestRoute && shortestRoute.coordinates.length > 1 && safeRoute?.is_rerouted && (
           <Polyline
-            positions={densifyCurvedCoordinates(shortestRoute.coordinates, 60)}
+            positions={densifyCurvedCoordinates(shortestRoute.coordinates, 20)}
             pathOptions={{
               color: "#DC2626",
               weight: 5,
@@ -1111,7 +1116,7 @@ export default function RiskMap({
           <>
             {/* Outer dark casing for high contrast against OpenStreetMap */}
             <Polyline
-              positions={densifyCurvedCoordinates(safeRoute.coordinates, 60)}
+              positions={densifyCurvedCoordinates(safeRoute.coordinates, 20)}
               pathOptions={{
                 color: "#0F172A",
                 weight: 9,
@@ -1122,7 +1127,7 @@ export default function RiskMap({
             />
             {/* Core electric navigation track */}
             <Polyline
-              positions={densifyCurvedCoordinates(safeRoute.coordinates, 60)}
+              positions={densifyCurvedCoordinates(safeRoute.coordinates, 20)}
               pathOptions={{
                 color: "#0284C7",
                 weight: 5,

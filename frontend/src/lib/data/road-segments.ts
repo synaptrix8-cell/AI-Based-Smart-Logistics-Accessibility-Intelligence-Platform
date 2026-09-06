@@ -701,7 +701,7 @@ function haversine(p1: [number, number], p2: [number, number]): number {
  */
 export function densifyCurvedCoordinates(
   pts: [number, number][],
-  maxSegmentMeters: number = 75
+  maxSegmentMeters: number = 30
 ): [number, number][] {
   if (!pts || pts.length < 2) return pts;
 
@@ -715,7 +715,8 @@ export function densifyCurvedCoordinates(
 
     const segDistKm = haversine(p1, p2);
     const segDistMeters = segDistKm * 1000;
-    const numSubdivisions = Math.max(1, Math.min(8, Math.floor(segDistMeters / maxSegmentMeters)));
+    // Allow up to 30 subdivisions for a highly realistic curved look
+    const numSubdivisions = Math.max(1, Math.min(30, Math.floor(segDistMeters / maxSegmentMeters)));
 
     for (let step = 1; step <= numSubdivisions; step++) {
       const t = step / numSubdivisions;
