@@ -389,7 +389,7 @@ export default function RiskMap({
           setSegments((prev) =>
             prev.map((s) => {
               if (clearedList.includes(s.id)) {
-                return { ...s, risk_score: s.base_risk ?? 0.32, risk_level: "LOW" };
+                return { ...s, risk_score: 0.32, risk_level: "LOW" };
               }
               return s;
             })
@@ -421,7 +421,7 @@ export default function RiskMap({
           setSegments((prev) =>
             prev.map((s) => {
               if (data.cleared_corridors.includes(s.id)) {
-                return { ...s, risk_score: s.base_risk ?? 0.32, risk_level: "LOW" };
+                return { ...s, risk_score: 0.32, risk_level: "LOW" };
               }
               return s;
             })
@@ -504,7 +504,7 @@ export default function RiskMap({
     setSegments((prev) =>
       prev.map((s) => {
         if (s.id === corrId) {
-          return { ...s, risk_score: s.base_risk ?? 0.32, risk_level: "LOW" };
+          return { ...s, risk_score: 0.32, risk_level: "LOW" };
         }
         return s;
       })

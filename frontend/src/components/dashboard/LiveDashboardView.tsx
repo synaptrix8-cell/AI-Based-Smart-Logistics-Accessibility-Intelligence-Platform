@@ -29,6 +29,7 @@ export default function LiveDashboardView() {
   const [reportMode, setReportMode] = useState<"driver" | "officer">("driver");
   const [dismissAdvisory, setDismissAdvisory] = useState<boolean>(false);
   const [blockedSegmentIds, setBlockedSegmentIds] = useState<string[]>([]);
+  const [clearedCorridors, setClearedCorridors] = useState<string[]>([]);
   const [resolvedNotice, setResolvedNotice] = useState<string | null>(null);
 
   // Sync persisted cleared corridors on mount across hard refreshes
@@ -38,6 +39,7 @@ export default function LiveDashboardView() {
         const clearedRaw = localStorage.getItem("setu_cleared_corridors");
         if (clearedRaw) {
           const clearedList: string[] = JSON.parse(clearedRaw);
+          setClearedCorridors(clearedList);
           setBlockedSegmentIds((prev) => prev.filter((id) => !clearedList.includes(id)));
         }
       }
@@ -47,6 +49,7 @@ export default function LiveDashboardView() {
       .then((r) => r.json())
       .then((data) => {
         if (data?.cleared_corridors && Array.isArray(data.cleared_corridors)) {
+          setClearedCorridors((prev) => Array.from(new Set([...prev, ...data.cleared_corridors])));
           setBlockedSegmentIds((prev) =>
             prev.filter((id) => !data.cleared_corridors.includes(id))
           );
@@ -64,6 +67,7 @@ export default function LiveDashboardView() {
           if (clearedRaw) {
             const list = JSON.parse(clearedRaw).filter((id: string) => id !== "seg-002");
             localStorage.setItem("setu_cleared_corridors", JSON.stringify(list));
+            setClearedCorridors(list);
           }
           const resolvedRaw = localStorage.getItem("setu_resolved_incidents");
           if (resolvedRaw) {
@@ -152,6 +156,7 @@ export default function LiveDashboardView() {
       });
 
       // Unblock corridor on map (turns back to green!)
+      setClearedCorridors((prev) => Array.from(new Set([...prev, corridorId])));
       setBlockedSegmentIds((prev) => prev.filter((id) => id !== corridorId));
 
       const corr = EAST_KHASI_HILLS_SEGMENTS.find((s) => s.id === corridorId);
@@ -205,12 +210,14 @@ export default function LiveDashboardView() {
   };
 
   const highRiskCount = EAST_KHASI_HILLS_SEGMENTS.filter((s) => {
+    if (clearedCorridors.includes(s.id)) return false;
     const isBlocked = blockedSegmentIds.includes(s.id);
     const eff = isBlocked ? 0.98 : s.risk_score;
     return eff >= 0.7;
   }).length;
 
   const mediumRiskCount = EAST_KHASI_HILLS_SEGMENTS.filter((s) => {
+    if (clearedCorridors.includes(s.id)) return false;
     const isBlocked = blockedSegmentIds.includes(s.id);
     const eff = isBlocked ? 0.98 : s.risk_score;
     return eff >= 0.4 && eff < 0.7 && !isBlocked;
@@ -218,7 +225,8 @@ export default function LiveDashboardView() {
 
   const lowRiskCount = EAST_KHASI_HILLS_SEGMENTS.filter((s) => {
     const isBlocked = blockedSegmentIds.includes(s.id);
-    const eff = isBlocked ? 0.98 : s.risk_score;
+    const isCleared = clearedCorridors.includes(s.id);
+    const eff = isBlocked ? 0.98 : (isCleared ? 0.32 : s.risk_score);
     return eff < 0.4 && !isBlocked;
   }).length;
 
