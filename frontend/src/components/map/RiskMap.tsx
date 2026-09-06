@@ -55,17 +55,26 @@ interface RiskMapProps {
   onSelectHubAsDest?: (hub: KeyHub) => void;
 }
 
+const DEFAULT_CENTER: [number, number] = [25.5788, 91.8933];
+const DEFAULT_ZOOM = 10;
+
 function MapViewController({
-  center,
-  zoom,
+  targetCoords,
 }: {
-  center: [number, number];
-  zoom: number;
+  targetCoords?: [number, number] | null;
 }) {
   const map = useMap();
+  const lastTargetKey = useRef<string | null>(null);
+
   useEffect(() => {
-    map.setView(center, zoom);
-  }, [center, zoom, map]);
+    if (!targetCoords) return;
+    const key = `${targetCoords[0].toFixed(4)},${targetCoords[1].toFixed(4)}`;
+    if (lastTargetKey.current !== key) {
+      lastTargetKey.current = key;
+      map.flyTo(targetCoords, 12, { duration: 0.8 });
+    }
+  }, [targetCoords, map]);
+
   return null;
 }
 
@@ -518,7 +527,11 @@ export default function RiskMap({
   });
 
   const highHazardSegments = segments.filter((s) => s.risk_score >= 0.7);
-  const centerCoords: [number, number] = [25.5788, 91.8933]; // Shillong
+  const selectedSegmentObj = segments.find((s) => s.id === selectedSegmentId);
+  const selectedSegmentCenter: [number, number] | null =
+    selectedSegmentObj && selectedSegmentObj.coordinates.length > 0
+      ? [selectedSegmentObj.coordinates[0][1], selectedSegmentObj.coordinates[0][0]]
+      : null;
 
   return (
     <div className={styles.mapSectionContainer}>
@@ -624,12 +637,12 @@ export default function RiskMap({
         )}
 
         <MapContainer
-          center={centerCoords}
-          zoom={10}
+          center={DEFAULT_CENTER}
+          zoom={DEFAULT_ZOOM}
           scrollWheelZoom={true}
           className={styles.leafletContainer}
         >
-          <MapViewController center={centerCoords} zoom={10} />
+          <MapViewController targetCoords={selectedSegmentCenter} />
 
         {/* Base Map Tiles */}
         <TileLayer

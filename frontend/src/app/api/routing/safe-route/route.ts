@@ -109,66 +109,59 @@ export async function POST(request: NextRequest) {
       }
 
       // 2. Evaluate active hazard against explicitly blocked corridors or live incident reports
-      const isExplicitlyBlocked =
-        blocked_segment_ids.length > 0 ||
-        (Boolean(live_hazard_location) && live_hazard_location.trim().length > 0);
-
       const isSohraBlocked =
         blocked_segment_ids.some((id: string) => id === "seg-010" || id === "seg-011" || id === "seg-012") ||
         (live_hazard_location && (live_hazard_location.toLowerCase().includes("sohra") || live_hazard_location.toLowerCase().includes("cherrapunji") || live_hazard_location.toLowerCase().includes("mawkdok")));
 
       const isNh6Blocked =
         blocked_segment_ids.some((id: string) => id === "seg-001" || id === "seg-002" || id === "seg-003" || id === "seg-004") ||
-        (live_hazard_location && (live_hazard_location.toLowerCase().includes("umsning") || live_hazard_location.toLowerCase().includes("nh6") || live_hazard_location.toLowerCase().includes("umiam") || live_hazard_location.toLowerCase().includes("descent")));
+        (live_hazard_location && (live_hazard_location.toLowerCase().includes("umsning") || live_hazard_location.toLowerCase().includes("nh6") || live_hazard_location.toLowerCase().includes("descent")));
 
-      // Check if corridor risk on this route exceeds safety tolerance
-      const isDestShillong = Math.abs(dest_lat - 25.572) < 0.05 && Math.abs(dest_lng - 91.885) < 0.05;
-      const isOriginNorth = origin_lat > 25.60;
-      const isDestSohra = dest_lat < 25.35;
+      // Geographic route-corridor intersection check:
+      // A route only crosses NH-6 (Umsning hazard) if it connects the northern gateway (lat >= 25.75) with the south (lat <= 25.68).
+      // Routes entirely within the southern sector (e.g. Cherrapunji <-> Shillong / Umiam) DO NOT touch NH-6!
+      const minLat = Math.min(origin_lat, dest_lat);
+      const maxLat = Math.max(origin_lat, dest_lat);
 
-      const routePassesNh6HighRisk = (isOriginNorth && dest_lat < 25.60) && avoidRiskThreshold <= 0.70;
-      const routePassesSohraHighRisk = isDestSohra && avoidRiskThreshold <= 0.70;
+      const routeTraversesNh6 = maxLat >= 25.75 && minLat <= 25.68;
+      const routeTraversesSohra = minLat <= 25.32 && maxLat >= 25.45;
 
-      // Only avoid hazard if the corridor is actually blocked or safety threshold triggers bypass
+      const isRouteBlockedByNh6 = isNh6Blocked && routeTraversesNh6;
+      const isRouteBlockedBySohra = isSohraBlocked && routeTraversesSohra;
+
+      const routePassesNh6HighRisk = routeTraversesNh6 && avoidRiskThreshold <= 0.70;
+      const routePassesSohraHighRisk = routeTraversesSohra && avoidRiskThreshold <= 0.70;
+
+      // Only avoid hazard if the corridor on THIS specific transit path is actually blocked or exceeds risk threshold
       const shouldAvoidHazard =
-        isExplicitlyBlocked ||
-        isNh6Blocked ||
-        isSohraBlocked ||
+        isRouteBlockedByNh6 ||
+        isRouteBlockedBySohra ||
         routePassesNh6HighRisk ||
         routePassesSohraHighRisk;
 
       let safeCoords = roadCoords;
       let safeDistKm = distKm;
-      let safeRisk = isNh6Blocked ? 0.76 : 0.28;
-      let shortestRisk = isNh6Blocked ? 0.76 : 0.28;
+      let safeRisk = isRouteBlockedByNh6 ? 0.76 : isRouteBlockedBySohra ? 0.82 : 0.28;
+      let shortestRisk = safeRisk;
       let riskReductionPct = 0;
       let isRerouted = false;
       let rerouteReason = "";
       let vehicleAdvisory = "Direct highway transit permitted. All open road sectors within accepted risk threshold.";
 
-      // Compute dynamic road-following detour via OSRM only when an actual hazard/block is present
+      // Compute dynamic road-following detour via OSRM only when an actual hazard/block is on this route
       if (shouldAvoidHazard) {
         try {
-          // Select intelligent detour waypoint that makes geographical sense for this origin & destination:
-          // 1. If going to Shillong Central (dest_lat ~25.57) from the north (Umiam/Nongpoh):
-          //    Detour via Shillong East Bypass (91.980, 25.640) -> arrives in Shillong (~28 km).
-          //    NEVER route via Mawphlang (25.455), which is 25 km SOUTH of Shillong!
-          // 2. If going to Cherrapunji / Sohra (dest_lat ~25.27):
-          //    Detour via Mawphlang-Weiloi Ridge (91.685, 25.390) -> arrives in Sohra.
-          // 3. Otherwise, use an intermediate lateral waypoint that stays within the route bounding box.
           let detourWaypoint: string | null = null;
           let blockedName = "Identified Hazard Sector";
 
-          if (isNh6Blocked || (isOriginNorth && isDestShillong)) {
-            // Bypass NH-6 via Shillong East Bypass / Mawryngkneng arterial
+          if (isRouteBlockedByNh6 || routePassesNh6HighRisk) {
+            // Bypass NH-6 via Shillong East Bypass
             detourWaypoint = "91.980,25.640";
             blockedName = "NH-6 Umiam / Umsning Corridor";
-          } else if (isSohraBlocked || isDestSohra) {
+          } else if (isRouteBlockedBySohra || routePassesSohraHighRisk) {
             // Bypass SH-5 via Mawphlang - Weiloi Ridge
             detourWaypoint = "91.685,25.390";
             blockedName = "SH-5 Mawkdok-Cherrapunji Pass";
-          } else if (origin_lng < dest_lng) {
-            detourWaypoint = `${((origin_lng + dest_lng) / 2 + 0.05).toFixed(3)},${((origin_lat + dest_lat) / 2).toFixed(3)}`;
           }
 
           if (detourWaypoint) {
@@ -182,8 +175,8 @@ export async function POST(request: NextRequest) {
               const detourData = await detourResp.json();
               if (detourData.routes && detourData.routes[0]) {
                 const detourDist = Number((detourData.routes[0].distance / 1000).toFixed(1));
-                // Sanity check: Ensure detour does not unrealistically balloon to more than 2.8x of direct distance
-                if (detourDist < distKm * 2.8 || distKm < 15) {
+                // Sanity check: Ensure detour does not unrealistically balloon to more than 2.2x of direct distance
+                if (detourDist < distKm * 2.2 || distKm < 15) {
                   safeCoords = detourData.routes[0].geometry.coordinates.map(
                     ([lng, lat]: [number, number]) => [lat, lng]
                   );
@@ -192,7 +185,7 @@ export async function POST(request: NextRequest) {
                   riskReductionPct = Math.round(((shortestRisk - safeRisk) / Math.max(0.01, shortestRisk)) * 100) || 68;
                   isRerouted = true;
 
-                  if (isExplicitlyBlocked || isNh6Blocked || isSohraBlocked) {
+                  if (isRouteBlockedByNh6 || isRouteBlockedBySohra) {
                     rerouteReason = `Real-Time Hazard Alert: ${blockedName} confirmed blocked. Automatically rerouted via verified alternate bypass.`;
                   } else {
                     rerouteReason = `Active High-Risk Warning: Elevated landslide susceptibility on ${blockedName}. Automatically rerouted via verified alternate bypass.`;
