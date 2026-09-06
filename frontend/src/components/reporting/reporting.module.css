@@ -343,3 +343,373 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ==========================================================================
+   Driver Quick Mode (Accessible, High-Contrast, Touch-First)
+   ========================================================================== */
+
+.modeTabs {
+  display: flex;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.modeTab {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 7px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.modeTab[data-active="true"] {
+  background: #0a6847;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(10, 104, 71, 0.5);
+  font-weight: 700;
+}
+
+.driverMode {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Photo capture dropzone */
+.photoDropzone {
+  border: 2px dashed rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.06);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.photoDropzone:hover {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.cameraIcon {
+  font-size: 2.2rem;
+  margin-bottom: 6px;
+}
+
+.photoPrompt {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.photoSubtext {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.65);
+  margin-top: 2px;
+}
+
+.fileInputHidden {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.previewContainer {
+  position: relative;
+  width: 100%;
+  max-height: 200px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 2px solid #10b981;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.previewImg {
+  width: 100%;
+  height: 190px;
+  object-fit: cover;
+  display: block;
+}
+
+.removePhotoBtn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(220, 38, 38, 0.9);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Auto-GPS Landmark Badge */
+.autoGpsCard {
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(14, 165, 233, 0.3);
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.gpsInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #e0f2fe;
+}
+
+.gpsTitle {
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.refreshGpsBtn {
+  background: rgba(14, 165, 233, 0.2);
+  border: 1px solid #0284c7;
+  color: #7dd3fc;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Quick Landmark Pills */
+.landmarkPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.landmarkPill {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.85);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.landmarkPill:hover, .landmarkPill[data-selected="true"] {
+  background: #0284c7;
+  border-color: #38bdf8;
+  color: #fff;
+  font-weight: 700;
+}
+
+/* Driver Big Hazard Grid */
+.driverGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.driverHazardBtn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  color: #f1f5f9;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.driverHazardBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-1px);
+}
+
+.driverHazardBtn[data-active="true"] {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.2);
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.3);
+}
+
+.driverHazardBtn[data-type="landslide"][data-active="true"] {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.2);
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.3);
+}
+
+.driverHazardBtn[data-type="flood"][data-active="true"] {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.2);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.3);
+}
+
+.driverHazardBtn[data-type="road_damage"][data-active="true"] {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.2);
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.3);
+}
+
+.driverHazardIcon {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.driverHazardLabel {
+  font-size: 0.95rem;
+  font-weight: 700;
+  display: block;
+}
+
+.driverHazardHint {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.6);
+  display: block;
+  margin-top: 2px;
+}
+
+/* Voice Input / Speech Area */
+.voiceBox {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.voiceTextarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  color: #fff;
+  padding: 12px 48px 12px 14px;
+  font-size: 0.9rem;
+  min-height: 70px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.voiceTextarea:focus {
+  outline: none;
+  border-color: #10b981;
+}
+
+.micBtn {
+  position: absolute;
+  top: 36px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.micBtn:hover {
+  background: rgba(16, 185, 129, 0.3);
+  border-color: #10b981;
+}
+
+.micListening {
+  background: #dc2626 !important;
+  border-color: #ef4444 !important;
+  animation: pulseMic 1.2s infinite;
+}
+
+@keyframes pulseMic {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+  70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}
+
+/* WhatsApp Emergency Dispatch Button */
+.whatsappBtn {
+  background: #25D366;
+  color: #000;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+}
+
+.whatsappBtn:hover {
+  background: #22c55e;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(37, 211, 102, 0.4);
+}
+
+.driverSubmitRow {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.driverSubmitBtn {
+  flex: 1;
+  background: #0a6847;
+  border: 1px solid #10b981;
+  color: #fff;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.driverSubmitBtn:hover:not(:disabled) {
+  background: #0d845b;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.4);
+}
+

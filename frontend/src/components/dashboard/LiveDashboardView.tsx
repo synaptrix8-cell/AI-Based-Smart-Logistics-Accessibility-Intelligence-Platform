@@ -4,7 +4,7 @@ import { useState } from "react";
 import DynamicRiskMap from "@/components/map/DynamicRiskMap";
 import RoutePlanner from "@/components/routing/RoutePlanner";
 import ReportModal from "@/components/reporting/ReportModal";
-import { RoadSegmentData, EAST_KHASI_HILLS_SEGMENTS } from "@/lib/data/road-segments";
+import { RoadSegmentData, EAST_KHASI_HILLS_SEGMENTS, KEY_HUBS } from "@/lib/data/road-segments";
 import styles from "./dashboard-view.module.css";
 
 interface RouteOverlay {
@@ -12,6 +12,8 @@ interface RouteOverlay {
   distance_km: number;
   avg_risk: number;
   corridors: string[];
+  is_rerouted?: boolean;
+  reroute_reason?: string;
 }
 
 export default function LiveDashboardView() {
@@ -24,7 +26,118 @@ export default function LiveDashboardView() {
   const [originHubId, setOriginHubId] = useState<string>("nongpoh");
   const [destHubId, setDestHubId] = useState<string>("cherrapunji");
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
+  const [reportMode, setReportMode] = useState<"driver" | "officer">("driver");
   const [dismissAdvisory, setDismissAdvisory] = useState<boolean>(false);
+  const [blockedSegmentIds, setBlockedSegmentIds] = useState<string[]>([]);
+  const [resolvedNotice, setResolvedNotice] = useState<string | null>(null);
+
+  const handleSimulateWhatsAppReport = async () => {
+    try {
+      const resp = await fetch("/api/alerts/inbound-whatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from: "whatsapp:+919436188210",
+          body: "Flash flood overflowing over NH-6 culvert near Umsning! Road completely blocked for trucks.",
+          location: "Umsning",
+          hazard_type: "flood",
+          photo_url: "https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?w=600&auto=format&fit=crop&q=80",
+        }),
+      });
+
+      if (resp.ok) {
+        const data = await resp.json();
+        const blockedId = data.affected_corridor?.id || "seg-002";
+        setBlockedSegmentIds((prev) => Array.from(new Set([...prev, blockedId])));
+        setResolvedNotice(null);
+
+        // If a route is active from Nongpoh to Cherrapunji, trigger real-time dynamic reroute!
+        if (originHubId && destHubId) {
+          const orig = KEY_HUBS.find((h) => h.id === originHubId);
+          const dest = KEY_HUBS.find((h) => h.id === destHubId);
+          if (orig && dest) {
+            const routeResp = await fetch("/api/routing/safe-route", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                origin_lat: orig.coords[0],
+                origin_lng: orig.coords[1],
+                dest_lat: dest.coords[0],
+                dest_lng: dest.coords[1],
+                blocked_segment_ids: [blockedId],
+                live_hazard_location: data.affected_corridor?.name,
+              }),
+            });
+            if (routeResp.ok) {
+              const rData = await routeResp.json();
+              if (rData.safe_route) {
+                setSafeRoute(rData.safe_route);
+              }
+              if (rData.shortest_route) {
+                setShortestRoute(rData.shortest_route);
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("WhatsApp test error:", err);
+    }
+  };
+
+  const handleResolveHazard = async (corridorId: string = "seg-002", incidentId?: string) => {
+    try {
+      await fetch("/api/alerts/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          corridor_id: corridorId,
+          incident_id: incidentId,
+          resolved_by: "Meghalaya PWD (NH Division) & SDRF Rapid Clearing Unit",
+          notes: "Obstruction cleared with earthmover. Pavement inspected and declared 100% safe for transit.",
+        }),
+      });
+
+      // Unblock corridor on map (turns back to green!)
+      setBlockedSegmentIds((prev) => prev.filter((id) => id !== corridorId));
+
+      const corr = EAST_KHASI_HILLS_SEGMENTS.find((s) => s.id === corridorId);
+      const corrName = corr?.name || "Corridor";
+      const nowStr = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+      setResolvedNotice(`${corrName} verified 100% CLEARED by District PWD at ${nowStr}. Road reopened for all transit.`);
+
+      // Recalculate route back to direct highway!
+      if (originHubId && destHubId) {
+        const orig = KEY_HUBS.find((h) => h.id === originHubId);
+        const dest = KEY_HUBS.find((h) => h.id === destHubId);
+        if (orig && dest) {
+          const remainingBlocks = blockedSegmentIds.filter((id) => id !== corridorId);
+          const routeResp = await fetch("/api/routing/safe-route", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              origin_lat: orig.coords[0],
+              origin_lng: orig.coords[1],
+              dest_lat: dest.coords[0],
+              dest_lng: dest.coords[1],
+              blocked_segment_ids: remainingBlocks,
+            }),
+          });
+          if (routeResp.ok) {
+            const rData = await routeResp.json();
+            if (rData.safe_route) {
+              setSafeRoute(rData.safe_route);
+            }
+            if (rData.shortest_route) {
+              setShortestRoute(rData.shortest_route);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Resolve hazard error:", err);
+    }
+  };
 
   const handleRouteCalculated = (
     safe: RouteOverlay | null,
@@ -157,6 +270,10 @@ export default function LiveDashboardView() {
             originHubCoords={originCoords}
             destHubCoords={destCoords}
             filterRiskLevel={riskFilter}
+            blockedSegmentIds={blockedSegmentIds}
+            resolvedNotice={resolvedNotice}
+            onTriggerWhatsAppDemo={handleSimulateWhatsAppReport}
+            onResolveHazard={handleResolveHazard}
             onSelectHubAsOrigin={(hub) => setOriginHubId(hub.id)}
             onSelectHubAsDest={(hub) => setDestHubId(hub.id)}
           />
@@ -231,7 +348,10 @@ export default function LiveDashboardView() {
               <button
                 type="button"
                 className={styles.reportCorridorBtn}
-                onClick={() => setIsReportModalOpen(true)}
+                onClick={() => {
+                  setReportMode("driver");
+                  setIsReportModalOpen(true);
+                }}
               >
                 <span>⚠️</span> Flag Incident on this Corridor
               </button>
@@ -247,6 +367,7 @@ export default function LiveDashboardView() {
             selectedDestId={destHubId}
             onOriginChange={(id) => setOriginHubId(id)}
             onDestChange={(id) => setDestHubId(id)}
+            blockedSegmentIds={blockedSegmentIds}
           />
         </div>
       </div>
@@ -255,10 +376,40 @@ export default function LiveDashboardView() {
       <button
         type="button"
         className={styles.reportFloatingBtn}
-        onClick={() => setIsReportModalOpen(true)}
-        title="Report Landslide or Hazard (GPS & Offline Enabled)"
+        onClick={() => {
+          setReportMode("driver");
+          setIsReportModalOpen(true);
+        }}
+        title="1-Tap Driver Hazard Report (Photo Snap, Voice, Auto-GPS & WhatsApp)"
+        style={{
+          background: "linear-gradient(135deg, #059669 0%, #0d9488 100%)",
+          border: "2px solid #34d399",
+          boxShadow: "0 8px 24px rgba(5, 150, 105, 0.4)",
+          padding: "12px 20px",
+          borderRadius: "50px",
+          fontWeight: 800,
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          fontSize: "0.9rem",
+          color: "#ffffff",
+          cursor: "pointer",
+        }}
       >
-        <span style={{ fontSize: "1.1rem" }}>🚨</span> Report Hazard
+        <span style={{ fontSize: "1.3rem" }}>📸</span>
+        <span>Driver Quick Report</span>
+        <span
+          style={{
+            background: "#f59e0b",
+            color: "#000",
+            fontSize: "0.65rem",
+            padding: "2px 6px",
+            borderRadius: "10px",
+            fontWeight: 900,
+          }}
+        >
+          PHOTO
+        </span>
       </button>
 
       {/* Field Report Modal */}
@@ -266,6 +417,7 @@ export default function LiveDashboardView() {
         isOpen={isReportModalOpen}
         onClose={() => setIsReportModalOpen(false)}
         defaultSegmentId={selectedSegment?.id}
+        initialMode={reportMode}
       />
     </div>
   );

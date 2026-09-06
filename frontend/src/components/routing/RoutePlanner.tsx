@@ -13,6 +13,8 @@ interface RouteOverlay {
   distance_km: number;
   avg_risk: number;
   corridors: string[];
+  is_rerouted?: boolean;
+  reroute_reason?: string;
 }
 
 interface RoutePlannerProps {
@@ -26,6 +28,7 @@ interface RoutePlannerProps {
   selectedDestId?: string | null;
   onOriginChange?: (id: string) => void;
   onDestChange?: (id: string) => void;
+  blockedSegmentIds?: string[];
 }
 
 export default function RoutePlanner({
@@ -34,6 +37,7 @@ export default function RoutePlanner({
   selectedDestId,
   onOriginChange,
   onDestChange,
+  blockedSegmentIds = [],
 }: RoutePlannerProps) {
   const [originId, setOriginId] = useState<string>("nongpoh");
   const [destId, setDestId] = useState<string>("cherrapunji");
@@ -76,6 +80,7 @@ export default function RoutePlanner({
             dest_lat: destHub.coords[0],
             dest_lng: destHub.coords[1],
             avoid_risk_above: avoidRiskThreshold,
+            blocked_segment_ids: blockedSegmentIds,
           }),
         });
 
@@ -87,6 +92,8 @@ export default function RoutePlanner({
               distance_km: data.safe_route.distance_km,
               avg_risk: data.safe_route.avg_risk,
               corridors: data.safe_route.corridors,
+              is_rerouted: data.safe_route.is_rerouted,
+              reroute_reason: data.safe_route.reroute_reason,
             };
             const shortest: RouteOverlay = {
               coordinates: data.shortest_route.coordinates,

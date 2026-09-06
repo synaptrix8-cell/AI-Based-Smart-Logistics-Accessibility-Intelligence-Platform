@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
 
 /**
  * POST /api/reports - Submit a new citizen incident report
- * Body: { category, segment_id, corridor_name, lat, lng, severity, description, encrypted_payload?, iv? }
+  * Body: { category, segment_id, corridor_name, lat, lng, severity, description, photo_base64?, nearest_landmark?, encrypted_payload?, iv? }
  */
 export async function POST(req: NextRequest) {
   try {
@@ -115,6 +115,8 @@ export async function POST(req: NextRequest) {
       lng,
       severity = 3,
       description,
+      photo_base64,
+      nearest_landmark,
       encrypted_payload,
       iv,
     } = body;
@@ -136,11 +138,11 @@ export async function POST(req: NextRequest) {
     let dbSuccess = false;
     try {
       const supabase = await createClient();
-      const { error } = await supabase.from("reports").insert({
+      const insertData: any = {
         id: reportId,
         category,
         segment_id: segment_id || null,
-        corridor_name: corridor_name || "East Khasi Hills Corridor",
+        corridor_name: nearest_landmark || corridor_name || "East Khasi Hills Corridor",
         lat,
         lng,
         severity,
@@ -149,7 +151,14 @@ export async function POST(req: NextRequest) {
         iv: iv || null,
         status: "unverified",
         created_at: timestamp,
-      });
+      };
+
+      // Add photo if provided
+      if (photo_base64) {
+        insertData.photo_base64 = photo_base64;
+      }
+
+      const { error } = await supabase.from("reports").insert(insertData);
       if (!error) dbSuccess = true;
     } catch {
       // Offline fallback: report accepted but not persisted to DB
@@ -160,6 +169,8 @@ export async function POST(req: NextRequest) {
       report_id: reportId,
       status: "unverified",
       db_persisted: dbSuccess,
+      has_photo: !!photo_base64,
+      nearest_landmark: nearest_landmark || corridor_name || "East Khasi Hills Corridor",
       created_at: timestamp,
       message: dbSuccess
         ? "Report submitted and persisted to database. Pending officer verification."
