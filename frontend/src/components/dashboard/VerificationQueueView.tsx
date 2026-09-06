@@ -5,6 +5,7 @@ import { decryptPayload } from "@/lib/crypto";
 import { QueuedReport, getPendingReports } from "@/lib/offline-queue";
 import { createClient } from "@/lib/supabase/client";
 import { triageFieldReport } from "@/lib/ml/vision-triage-model";
+import IncidentTimelineCard from "@/components/dashboard/IncidentTimelineCard";
 import styles from "@/app/dashboard/reports/reports.module.css";
 
 interface IncidentItem {
@@ -437,6 +438,11 @@ export default function VerificationQueueView({
             Dismissed ({reports.filter((r) => r.status === "rejected").length})
           </button>
         </div>
+      </div>
+
+      {/* Incident Status Timeline Card (Light Mode) */}
+      <div style={{ marginBottom: "24px", display: "flex", justifyContent: "flex-start" }}>
+        <IncidentTimelineCard />
       </div>
 
       <div className={styles.reportsGrid}>
