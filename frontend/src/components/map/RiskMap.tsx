@@ -23,6 +23,7 @@ import {
   densifyCurvedCoordinates,
 } from "@/lib/data/road-segments";
 import { createClient, hasSupabaseBrowserEnv } from "@/lib/supabase/client";
+import { markHazardResolved } from "@/lib/hazard-sync";
 import styles from "./map.module.css";
 
 // Fix standard Leaflet default icon issues in bundlers
@@ -53,6 +54,7 @@ interface RiskMapProps {
   onMapStatsChange?: (stats: MapRiskStats) => void;
   resolvedNotice?: string | null;
   onTriggerWhatsAppDemo?: () => void;
+  onTriggerDawkiDemo?: () => void;
   onResolveHazard?: (corridorId: string, incidentId?: string) => void;
   onSelectHubAsOrigin?: (hub: KeyHub) => void;
   onSelectHubAsDest?: (hub: KeyHub) => void;
@@ -103,6 +105,7 @@ export default function RiskMap({
   onMapStatsChange,
   resolvedNotice = null,
   onTriggerWhatsAppDemo,
+  onTriggerDawkiDemo,
   onResolveHazard,
   onSelectHubAsOrigin,
   onSelectHubAsDest,
@@ -413,7 +416,53 @@ export default function RiskMap({
       }
     } catch {}
 
-    const initialIncidents = seedIncidents.map((inc) => {
+    // Hydrate verified reports from localStorage and API
+    let verifiedReportsList: any[] = [];
+    try {
+      if (typeof window !== "undefined") {
+        const rawVR = localStorage.getItem("setu_verified_reports");
+        if (rawVR) {
+          const parsedVR = JSON.parse(rawVR);
+          verifiedReportsList = Object.values(parsedVR);
+        }
+      }
+    } catch {}
+
+    const buildVerifiedIncident = (vr: any): LiveIncident => {
+      const incId = vr.id.startsWith("inc-") ? vr.id : `inc-${vr.id}`;
+      // Verified report represents an active hazard on the ground!
+      // Only treat as resolved if explicitly marked resolved.
+      const isResolved =
+        vr.status === "resolved" ||
+        (Boolean(storedResolved[incId] || storedResolved[vr.id]) && vr.status !== "verified");
+
+      const corrId = vr.segment_id || (vr.id === "rep-ekh-002" ? "seg-013" : "seg-010");
+
+      return {
+        id: incId,
+        corridor_id: corrId,
+        type: (vr.category === "landslide" ? "landslide" : vr.category === "flood" ? "flood" : "road_damage") as any,
+        title: `Verified Field Report: ${vr.corridor_name || "Hazard Zone"}`,
+        location: `${vr.corridor_name || "Corridor"} • Verified Triage`,
+        coords: vr.lat && vr.lng ? [vr.lat, vr.lng] : [25.2104, 91.9541],
+        severity: (vr.severity >= 4 ? "CRITICAL" : "HIGH") as any,
+        time: vr.verified_at || vr.created_at || new Date().toISOString(),
+        formattedDate: formatIncidentDate(vr.verified_at || vr.created_at || new Date().toISOString()),
+        timeAgo: timeAgo(vr.verified_at || vr.created_at || new Date().toISOString()),
+        status: isResolved ? "RESOLVED" : "ACTIVE",
+        resolvedBy: storedResolved[incId]?.resolvedBy || storedResolved[vr.id]?.resolvedBy || "Meghalaya PWD (NH Division)",
+        resolvedAt: storedResolved[incId]?.resolvedAt || storedResolved[vr.id]?.resolvedAt || "Verified Cleared",
+        source: "Official Verification Queue (Triage Validated)",
+      };
+    };
+
+    const verifiedIncidents = verifiedReportsList.map(buildVerifiedIncident);
+
+    const initialIncidents = [...verifiedIncidents, ...seedIncidents.filter((s) => !verifiedIncidents.some((v) => v.corridor_id === s.corridor_id))].map((inc) => {
+      // If the incident was already created as ACTIVE from a verified report, preserve its ACTIVE status
+      if (inc.status === "ACTIVE") {
+        return inc;
+      }
       if (storedResolved[inc.id]) {
         return {
           ...inc,
@@ -427,6 +476,21 @@ export default function RiskMap({
     });
 
     setLiveIncidents(initialIncidents);
+
+    // Sync verified reports from server API
+    fetch("/api/reports/verify")
+      .then((r) => r.json())
+      .then((vData) => {
+        if (vData?.verified_reports && Array.isArray(vData.verified_reports)) {
+          const apiVerifiedIncidents = vData.verified_reports.map(buildVerifiedIncident);
+          setLiveIncidents((prev) => {
+            const existingIds = new Set(prev.map((p) => p.id));
+            const fresh = apiVerifiedIncidents.filter((avi: LiveIncident) => !existingIds.has(avi.id));
+            return [...fresh, ...prev];
+          });
+        }
+      })
+      .catch(() => {});
 
     // Sync with server /api/alerts/resolve
     fetch("/api/alerts/resolve")
@@ -460,13 +524,13 @@ export default function RiskMap({
           } catch {}
           setLiveIncidents((prev) =>
             prev.map((inc) => {
-              if (sMap[inc.id]) {
+              if (sMap[inc.id] || (inc.corridor_id && data.cleared_corridors?.includes(inc.corridor_id))) {
                 return {
                   ...inc,
                   status: "RESOLVED" as const,
                   severity: "LOW" as const,
-                  resolvedBy: sMap[inc.id].resolvedBy,
-                  resolvedAt: sMap[inc.id].resolvedAt,
+                  resolvedBy: sMap[inc.id]?.resolvedBy || "Meghalaya PWD (NH Division) & SDRF Rapid Clearing Unit",
+                  resolvedAt: sMap[inc.id]?.resolvedAt || "Verified Cleared",
                 };
               }
               return inc;
@@ -476,6 +540,28 @@ export default function RiskMap({
       })
       .catch(() => {});
 
+    // Listen for realtime hazard verification events
+    const handleVerifiedHazardEvent = (e: any) => {
+      const vr = e.detail;
+      if (!vr) return;
+      const newInc = buildVerifiedIncident(vr);
+      newInc.status = "ACTIVE";
+      const corrId = newInc.corridor_id || vr.segment_id;
+
+      if (corrId) {
+        setHydratedClearedCorridorIds((prev) => prev.filter((id) => id !== corrId));
+        setSegments((prev) =>
+          prev.map((s) => (s.id === corrId ? { ...s, risk_score: 0.88, risk_level: "HIGH" } : s))
+        );
+      }
+      setLiveIncidents((prev) => [newInc, ...prev.filter((p) => p.id !== newInc.id)]);
+      setActiveRealtimeUpdates((prev) => prev + 1);
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("setu_hazard_verified", handleVerifiedHazardEvent);
+    }
+
     // Update timeAgo labels every minute
     const updateInterval = setInterval(() => {
       setLiveIncidents((prev) =>
@@ -483,7 +569,12 @@ export default function RiskMap({
       );
     }, 60000);
 
-    return () => clearInterval(updateInterval);
+    return () => {
+      clearInterval(updateInterval);
+      if (typeof window !== "undefined") {
+        window.removeEventListener("setu_hazard_verified", handleVerifiedHazardEvent);
+      }
+    };
   }, []);
 
   // Handler for official marking hazard as fixed (persists across hard refresh!)
@@ -492,27 +583,8 @@ export default function RiskMap({
     const resolvedTimeString = formatIncidentDate(now.toISOString());
     const corrId = corridorId || "seg-002";
     
-    // Persist to localStorage immediately
-    try {
-      if (typeof window !== "undefined") {
-        const raw = localStorage.getItem("setu_resolved_incidents");
-        const stored = raw ? JSON.parse(raw) : {};
-        stored[incidentId] = {
-          resolvedBy: "Meghalaya PWD (NH Division) & SDRF Rapid Clearing Unit",
-          resolvedAt: resolvedTimeString,
-        };
-        localStorage.setItem("setu_resolved_incidents", JSON.stringify(stored));
-
-        // Also persist cleared corridor
-        const corrId = corridorId || "seg-002";
-        const clearedRaw = localStorage.getItem("setu_cleared_corridors");
-        const clearedList: string[] = clearedRaw ? JSON.parse(clearedRaw) : [];
-        if (!clearedList.includes(corrId)) {
-          clearedList.push(corrId);
-          localStorage.setItem("setu_cleared_corridors", JSON.stringify(clearedList));
-        }
-      }
-    } catch {}
+    // Call central hazard-sync engine to update storage and emit global event
+    markHazardResolved(corrId, incidentId);
 
     setSegments((prev) =>
       prev.map((s) => {
@@ -525,7 +597,7 @@ export default function RiskMap({
 
     setLiveIncidents((prev) =>
       prev.map((inc) => {
-        if (inc.id === incidentId) {
+        if (inc.id === incidentId || (corrId && inc.corridor_id === corrId)) {
           return {
             ...inc,
             status: "RESOLVED",
@@ -669,9 +741,12 @@ export default function RiskMap({
     };
   }, []);
 
-  const clearedIds = new Set([...clearedCorridorIds, ...hydratedClearedCorridorIds]);
-  const activeIncidents = liveIncidents.filter(
-    (inc) => inc.status === "ACTIVE" && (!inc.corridor_id || !clearedIds.has(inc.corridor_id))
+  const activeIncidents = liveIncidents.filter((inc) => inc.status === "ACTIVE");
+  const activeCorridorIds = new Set(activeIncidents.map((inc) => inc.corridor_id).filter(Boolean) as string[]);
+  const effectiveClearedIds = new Set(
+    Array.from(new Set([...clearedCorridorIds, ...hydratedClearedCorridorIds])).filter(
+      (id) => !activeCorridorIds.has(id)
+    )
   );
   const activeIncidentRiskByCorridor = new Map<string, number>();
   activeIncidents.forEach((inc) => {
@@ -684,7 +759,11 @@ export default function RiskMap({
   });
 
   const getEffectiveRisk = (segment: RoadSegmentData) => {
-    if (clearedIds.has(segment.id)) return 0.32;
+    if (activeCorridorIds.has(segment.id)) {
+      const incidentRisk = activeIncidentRiskByCorridor.get(segment.id) || 0.88;
+      return Math.max(0.85, incidentRisk);
+    }
+    if (effectiveClearedIds.has(segment.id)) return 0.32;
     const incidentRisk = activeIncidentRiskByCorridor.get(segment.id) || 0;
     if (blockedSegmentIds?.includes(segment.id)) return Math.max(0.98, incidentRisk);
     return Math.max(segment.risk_score, incidentRisk);
@@ -731,7 +810,7 @@ export default function RiskMap({
 
   // Filter segments based on corridor display mode and risk level filter
   const displayedSegments = corridorDisplay === "OFF" ? [] : segments.filter((s) => {
-    const isBlocked = blockedSegmentIds?.includes(s.id) && !clearedIds.has(s.id);
+    const isBlocked = blockedSegmentIds?.includes(s.id) && !effectiveClearedIds.has(s.id);
     const effectiveRisk = getEffectiveRisk(s);
 
     // First apply corridor display filter
@@ -886,7 +965,7 @@ export default function RiskMap({
         {displayedSegments.map((seg) => {
           const rawLatLngs = seg.coordinates.map((c) => [c[1], c[0]] as [number, number]);
           const latLngs = densifyCurvedCoordinates(rawLatLngs, 15);
-          const isBlocked = blockedSegmentIds?.includes(seg.id) && !clearedIds.has(seg.id);
+          const isBlocked = blockedSegmentIds?.includes(seg.id) && !effectiveClearedIds.has(seg.id);
           const hasActiveIncident = activeIncidentRiskByCorridor.has(seg.id);
           const effectiveRisk = getEffectiveRisk(seg);
           const color = isBlocked ? "#DC2626" : getRiskColor(effectiveRisk);
@@ -1032,7 +1111,7 @@ export default function RiskMap({
 
         {/* === LIVE INCIDENT MARKERS ON MAP === */}
         {liveIncidents
-          .filter((inc) => inc.coords && inc.status === "ACTIVE" && (!inc.corridor_id || !clearedIds.has(inc.corridor_id)))
+          .filter((inc) => inc.coords && inc.status === "ACTIVE")
           .map((inc) => {
             const incIcon = L.divIcon({
               className: "live-incident-icon",
@@ -1375,9 +1454,20 @@ export default function RiskMap({
                 type="button"
                 className={styles.updatesTestWaBtn}
                 onClick={onTriggerWhatsAppDemo}
-                title="Simulate incoming WhatsApp hazard report from a driver"
+                title="Simulate incoming WhatsApp hazard report on NH-6 from a driver"
               >
-                <span>📲</span> Test WhatsApp Report
+                <span>📲</span> Test NH-6 WhatsApp Report
+              </button>
+            )}
+            {onTriggerDawkiDemo && (
+              <button
+                type="button"
+                className={styles.updatesTestWaBtn}
+                style={{ background: "#6D28D9", border: "1px solid #A78BFA", color: "#FFFFFF" }}
+                onClick={onTriggerDawkiDemo}
+                title="Verify Dawki Hazard (NH-40), display on map and calculate dynamic detour"
+              >
+                <span>⚠️</span> Test Dawki Hazard & Reroute
               </button>
             )}
             <button

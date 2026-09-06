@@ -1,147 +1,87 @@
-````carousel
-# SETU
-## Smart Logistics & Accessibility Intelligence
-**Real-Time AI-Driven Hazard Avoidance & Dynamic Safe Routing for Vulnerable Mountain Corridors**
+# Setu: AI-Based Smart Logistics & Accessibility Intelligence
+**SIH 2024 Pitch Deck - 5 Minute Format**
 
-**Smart India Hackathon 2024** | Problem ID: SIH26002
+> **Pitch Strategy (5 Minutes / 6 Slides)**
+> You have roughly **45 to 50 seconds** per slide. Do not read the slides word-for-word. Let the judges read the technical bullet points while you say the *Speaker Notes* out loud.
 
-<!-- slide -->
-# The Problem: Logistics Breakdown
-*Mountain terrains are highly vulnerable to monsoons, causing recurring landslides and road washaways.*
+---
 
-> [!WARNING]
-> **Why Existing Solutions (like Google Maps) Fail Here**
-> Standard navigation apps optimize for **traffic speed** on flat city roads. They do not calculate that a mountain road is on the verge of collapsing from 150mm of rain, or that a deep valley has zero cellular signal.
+## Slide 1: The Blind Spot (The Problem)
+**Visual Idea:** A split-screen showing a standard Google Maps route looking "Green/Fast" vs a real-life photo of a massive Himalayan landslide blocking that exact same road.
 
-**The Impact:**
-- Single-artery national highways cut off.
-- Essential medicine, food, and freight convoys get stranded.
+**Content:**
+* **The Vulnerability:** Standard GPS apps optimize purely for traffic speed, completely ignoring geographical danger.
+* **The Danger:** Heavy rainfall + steep slopes = unexpected landslides. Supply chains and emergency logistics break down because they route trucks straight into newly formed disaster zones.
+* **The Communication Gap:** Drivers in these zones often have zero 4G internet, leaving them stranded and unable to report the hazard.
 
-<!-- slide -->
-# The Solution: What is Setu?
-*Setu is a terrain-aware logistics intelligence platform that acts as a **mountain co-pilot**.*
+> 🗣️ **Speaker Notes (45 sec):**
+> *"Good morning judges. We are tackling a massive blind spot in national logistics. Today, standard GPS apps route trucks purely based on traffic speed. In the mountains, an empty road shows up as 'green and fast' right until a truck drives into a landslide. They cannot calculate that the road is soaked by 150mm of rain and about to collapse. Furthermore, when disaster strikes, 4G towers go down, leaving drivers completely cut off from reporting the hazard."*
 
-**Core Capabilities:**
-1. **Monitors Arterial Corridors**: Real-time color-coded risk levels (Green = Safe, Amber = Caution, Red = Hazard).
-2. **AI Safe-Route Finder**: Computes alternative safe routes using a custom Dijkstra graph algorithm that actively penalizes hazardous corridors.
-3. **Zero-Signal Resilience**: Works in network dead-zones via Offline-First architecture and SMS fallback.
-4. **Authority Control Room**: Dashboard for district officials to monitor corridors, verify field reports, and broadcast alerts.
+---
 
-<!-- slide -->
-# How It Works: The Algorithm
-*Dynamic Geotechnical Risk Formulation & Routing*
+## Slide 2: Setu - The Intelligence Platform (The Solution)
+**Visual Idea:** High-quality screenshot of the dynamic dashboard showing the GIS Map, the blue detour line, and the "0 Active Hazards" KPI.
 
-### 1. Risk Index Formulation (0 to 1)
-$RRI = (0.25 \times Slope) + (0.35 \times Rainfall) + (0.20 \times History) + (0.20 \times Reports)$
-- **Slope**: Derived from Digital Elevation Models (>25° increases score rapidly).
-- **Rainfall**: Real-time mm/hr precipitation telemetry.
+**Content:**
+* **Real-Time Risk Engine:** A proactive logistics platform that predicts hazards before they happen using environmental telemetry.
+* **Dynamic GIS Rerouting:** Automatically calculating safe detours for logistics convoys based on geological safety, not just speed.
+* **Dual-Trust Verification:** A system where citizen reports are verified by officials before traffic is rerouted.
+* **Zero-Signal Survival:** An offline-first architecture that functions even when cell towers collapse.
 
-### 2. Risk-Weighted Dijkstra Routing
-Standard routing uses pure distance. Setu's AI penalizes risky corridors:
-$Edge Cost = Distance \times (1.0 + (\frac{Risk Score}{1.0 - Tolerance})^2)$
-*If a corridor's risk spikes, the algorithm mathematically avoids it.*
+> 🗣️ **Speaker Notes (45 sec):**
+> *"Our solution is Setu—an AI-Based Smart Logistics Intelligence Platform. Setu proactively predicts road hazards using live environmental data and mathematically reroutes logistics convoys based on geological safety, not just speed. We built a system with a 'human-in-the-loop' verification queue and an offline-first architecture that guarantees critical supply chains survive even when communication networks completely fail."*
 
-<!-- slide -->
-# Where is the Data Coming From?
-*Every data point in Setu comes from a specific, reliable pipeline:*
+---
 
-| Data Layer | Source Engine | Implementation |
-|---|---|---|
-| **Road Corridors** | OpenStreetMap (OSM) | Seeded into PostGIS `LineString` geometries. |
-| **Topography & Slopes** | Digital Elevation Model (DEM) | Stored as `slope_gradient` (e.g., 28.0°). |
-| **Live Weather** | OpenWeatherMap API | Fetched via Python engine & normalized against thresholds. |
-| **Landslide History** | Geological Survey of India (GSI) | Seeded as baseline vulnerability scores. |
-| **Live Incidents** | Crowdsourced Driver Reports | Webhook payloads with GPS points (`ST_Point`). |
+## Slide 3: The Tech Stack (Frontend & Backend)
+**Visual Idea:** A clean architectural diagram or logos of the tech stack (Next.js, Python, Supabase, PostGIS, Leaflet).
 
-<!-- slide -->
-# How the Data is Flowing
-*End-to-End System Architecture*
+**Content:**
+* **Frontend UI:** Next.js 16 (App Router), React 19, modular CSS for ultra-fast, lightweight loading.
+* **GIS Mapping Engine:** Custom vector Leaflet overlays utilizing raw OpenStreetMap (OSM) coordinates for hyper-accurate mountain curves.
+* **Backend Microservices:** Python FastAPI utilizing `NetworkX` for deep mathematical graph routing.
+* **Database & Security:** Supabase (PostgreSQL 15), spatial PostGIS queries, Row-Level Security (RLS), and AES-GCM 256-bit Web Crypto encryption.
 
-```mermaid
-graph LR
-    subgraph External["Data Sources"]
-        OSM[OSM Geometry]
-        GSI[GSI History]
-        OWM[OpenWeatherMap]
-        Citizen[WhatsApp Reports]
-    end
+> 🗣️ **Speaker Notes (45 sec):**
+> *"Our architecture is heavily optimized. The frontend is built on Next.js 16 and custom Leaflet vector maps, avoiding heavy Google Maps APIs. Our backend utilizes Python FastAPI for our routing algorithms. For our database, we use a serverless Supabase PostgreSQL cluster equipped with PostGIS for complex spatial geometry queries, wrapped in strict Row-Level Security and AES-GCM encryption to protect sensitive logistics data."*
 
-    subgraph Intelligence["Python Risk Engine"]
-        API[FastAPI]
-        Risk[Risk Calculator]
-        Graph[Dijkstra Router]
-    end
+---
 
-    subgraph Database["Supabase Cloud"]
-        DB[(PostgreSQL + PostGIS)]
-        RT[Realtime WebSockets]
-        Cache[(Cache Layer)]
-    end
-    
-    subgraph Client["Next.js Web App"]
-        Map[GIS Map]
-        Dash[Control Room]
-        PWA[Offline ServiceWorker]
-    end
+## Slide 4: Data Sources & The AI Engine
+**Visual Idea:** A flow chart showing Data (Weather, Elevation, GSI) -> The Math Equation -> The Blue Safe Route.
 
-    OWM --> Risk
-    Citizen --> DB
-    GSI --> DB
-    OSM --> Graph
-    
-    Risk --> DB
-    API <--> DB
-    Graph <--> API
-    
-    DB --> RT
-    RT --> Dash
-    RT --> Map
-```
+**Content:**
+* **Geological Baseline:** Sourced from the Geological Survey of India (GSI) susceptibility maps (20% weight).
+* **Live Telemetry:** Polling OpenWeatherMap API every 30s for rainfall triggers (35% weight).
+* **Topography Data:** Digital Elevation Models (DEM) evaluating slope gradients (25% weight).
+* **The AI Algorithm:** A custom **Risk-Weighted Dijkstra Router**. It multiplies geographic distance by an exponential risk penalty, forcing the algorithm to bypass highly dangerous roads even if they are shorter.
 
-<!-- slide -->
-# What Data Are We Caching?
-*Ensuring Resilience & High Performance*
+> 🗣️ **Speaker Notes (50 sec):**
+> *"How do we know a road is dangerous? We don't guess. We pull live telemetry from OpenWeatherMap, static slope gradients from Elevation Models, and historical susceptibility data from the Geological Survey of India. We feed this into a custom Risk-Weighted Dijkstra algorithm. If a road's risk score breaches the driver's safety tolerance, our algorithm mathematically penalizes that route to infinity, forcing it to find a longer, but infinitely safer bypass."*
 
-> [!TIP]
-> **Performance & Offline First Architecture**
-> Setu is designed to survive in mountain valleys with zero internet connectivity.
+---
 
-1. **Weather Data Cache**: OpenWeatherMap API responses are temporarily stored in the `weather_cache` table to prevent rate-limiting and ensure instant availability.
-2. **Offline GIS Map Tiles**: Leaflet map tiles and critical segment geometries are cached locally via IndexedDB and a PWA ServiceWorker.
-3. **Local Incident Queue**: If a driver submits a hazard report in a dead zone, it queues in `localStorage` and auto-syncs the second cell signal returns.
+## Slide 5: Extreme Offline Resilience
+**Visual Idea:** Icons for "No Signal", "SMS Text Message", and "Local Caching". 
 
-<!-- slide -->
-# Section Deep-Dive: GIS Map
-*The core visual intelligence layer of the dashboard.*
+**Content:**
+* **Progressive Web App (PWA):** ServiceWorkers cache map tiles and routing JSONs into browser `IndexedDB`. The app survives airplane mode.
+* **Local Queuing:** Reports submitted without internet are queued in `localStorage` and auto-sync the millisecond a cell tower is detected.
+* **SMS Webhook Fallback:** A Python Natural Language Processing (NLP) parser that extracts hazard locations from basic 160-character 2G text messages.
+* **Canvas Image Compression:** Compressing 5MB photos locally to 60KB before uploading to survive 2G EDGE networks.
 
-**What is it doing?**
-- **Dynamic Risk Visualization**: Renders all major highway segments in real-time. Turns corridors Red (Blocked), Amber (Caution), or Green (Clear) based on incoming intelligence.
-- **Autonomous Rerouting**: When a hazard drops onto the map, it instantly recalculates the AI Detour Route (blue line) around the blockage, preventing trucks from getting trapped.
-- **Real-Road Curve Geometry**: Uses high-resolution OpenStreetMap data to draw exact highway curves rather than straight lines.
+> 🗣️ **Speaker Notes (50 sec):**
+> *"Mountain valleys are notorious dead-zones. Setu is an Offline-First Progressive Web App. Our ServiceWorkers cache map data directly into the device's IndexedDB so navigation survives complete signal loss. For hazard reporting, we built an offline queue that auto-syncs the moment you get a bar of signal, and an SMS Webhook fallback that allows truck drivers on 2G dumb-phones to update the central database via text message."*
 
-<!-- slide -->
-# Section Deep-Dive: Reports
-*The Trust & Verification Pipeline.*
+---
 
-**What is it doing?**
-- **Inbound Triage**: Collects incoming hazard reports from drivers via the WhatsApp webhook gateway or the PWA form.
-- **Payload Extraction**: Parses GPS location, photo proof (downscaled 60KB JPEG for 2G networks), and hazard severity.
-- **Official Verification**: Prevents public panic and spam. District officials review the visual proof in the dashboard queue and click **"Verify"** to officially lock down a corridor.
+## Slide 6: The Impact
+**Visual Idea:** The final, bold mission statement.
 
-<!-- slide -->
-# Section Deep-Dive: Alerts
-*Zero-Internet Emergency Broadcast*
+**Content:**
+* **Zero Downtime:** Proactive routing ensures national supply chains never drive blindly into blockades.
+* **Scalable Nationwide:** PostGIS architecture allows instant scaling to any mountainous state simply by importing new highway geometries.
+* **Actionable Intelligence:** Gives government officials a verified, real-time command center to coordinate disaster relief instantly.
 
-**What is it doing?**
-- **Multi-Channel Push**: Once a hazard is verified, officials can broadcast critical road closure warnings in a single click.
-- **SMS Fallback Engine**: Dispatches 160-character emergency text warnings to drivers carrying basic 2G feature phones.
-- **Dynamic Advisories**: Updates the flashing banner at the top of the dashboard to immediately alert all connected logistics operators of the active regional hazard.
-
-<!-- slide -->
-# Impact & Scalability
-*Why Setu Matters for India's Future*
-
-- **68% Reduction in Stranded Freight**: Predictive re-routing prevents high-tonnage cargo from getting trapped in landslide chokepoints.
-- **₹140+ Cr Annual Economic Savings**: Zero wastage of perishable medical, agricultural, and poultry supplies.
-- **Infinite Scalability**: Built entirely on OpenStreetMap, GSI open datasets, and PostGIS. Adding a new state (like Sikkim or Himachal Pradesh) simply requires uploading its road network GeoJSON.
-````
+> 🗣️ **Speaker Notes (35 sec):**
+> *"Ultimately, Setu ensures zero downtime for emergency logistics. Because we rely on PostGIS geometries instead of hardcoded maps, we can scale this to any mountainous state in India instantly. We are providing a centralized, verified command center that saves lives, secures supply chains, and prevents convoys from driving blindly into disaster. Thank you."*

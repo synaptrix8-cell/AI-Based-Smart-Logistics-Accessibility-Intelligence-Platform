@@ -46,18 +46,58 @@ export default function LiveDashboardView() {
     };
   });
 
-  // Sync persisted cleared corridors on mount across hard refreshes
+  // Sync persisted cleared corridors and verified reports on mount across hard refreshes
   useEffect(() => {
+    let currentCleared: string[] = [];
     try {
       if (typeof window !== "undefined") {
         const clearedRaw = localStorage.getItem("setu_cleared_corridors");
         if (clearedRaw) {
-          const clearedList: string[] = JSON.parse(clearedRaw);
-          setClearedCorridors(clearedList);
-          setBlockedSegmentIds((prev) => prev.filter((id) => !clearedList.includes(id)));
+          currentCleared = JSON.parse(clearedRaw);
+          setClearedCorridors(currentCleared);
+          setBlockedSegmentIds((prev) => prev.filter((id) => !currentCleared.includes(id)));
+        }
+
+        // Hydrate verified reports into blocked corridors if not cleared
+        const rawVR = localStorage.getItem("setu_verified_reports");
+        if (rawVR) {
+          const vMap = JSON.parse(rawVR);
+          const activeVerifiedCorridors: string[] = [];
+          Object.values(vMap).forEach((vr: any) => {
+            if (vr.status === "verified") {
+              const corrId = vr.segment_id || (vr.id === "rep-ekh-002" ? "seg-013" : "seg-010");
+              if (!currentCleared.includes(corrId)) {
+                activeVerifiedCorridors.push(corrId);
+              }
+            }
+          });
+          if (activeVerifiedCorridors.length > 0) {
+            setBlockedSegmentIds((prev) => Array.from(new Set([...prev, ...activeVerifiedCorridors])));
+          }
         }
       }
     } catch {}
+
+    // Also fetch server-side verified reports
+    fetch("/api/reports/verify")
+      .then((r) => r.json())
+      .then((vData) => {
+        if (vData?.verified_reports && Array.isArray(vData.verified_reports)) {
+          const apiCorridors: string[] = [];
+          vData.verified_reports.forEach((vr: any) => {
+            if (vr.status === "verified") {
+              const corrId = vr.segment_id || (vr.id === "rep-ekh-002" ? "seg-013" : "seg-010");
+              if (!currentCleared.includes(corrId)) {
+                apiCorridors.push(corrId);
+              }
+            }
+          });
+          if (apiCorridors.length > 0) {
+            setBlockedSegmentIds((prev) => Array.from(new Set([...prev, ...apiCorridors])));
+          }
+        }
+      })
+      .catch(() => {});
 
     fetch("/api/alerts/resolve")
       .then((r) => r.json())
@@ -70,6 +110,37 @@ export default function LiveDashboardView() {
         }
       })
       .catch(() => {});
+
+    // Listen to real-time verification event from reports queue
+    const handleHazardVerified = (e: any) => {
+      const vr = e.detail;
+      if (!vr) return;
+      const corrId = vr.segment_id || (vr.id === "rep-ekh-002" ? "seg-013" : "seg-010");
+      setBlockedSegmentIds((prev) => Array.from(new Set([...prev, corrId])));
+      setClearedCorridors((prev) => prev.filter((id) => id !== corrId));
+      setResolvedNotice(null);
+    };
+
+    // Listen to real-time hazard resolution event (e.g. from bottom feed official button)
+    const handleHazardResolved = (e: any) => {
+      const { corridorId } = e.detail || {};
+      if (corridorId) {
+        setClearedCorridors((prev) => Array.from(new Set([...prev, corridorId])));
+        setBlockedSegmentIds((prev) => prev.filter((id) => id !== corridorId));
+      }
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("setu_hazard_verified", handleHazardVerified);
+      window.addEventListener("setu_hazard_resolved", handleHazardResolved);
+    }
+
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("setu_hazard_verified", handleHazardVerified);
+        window.removeEventListener("setu_hazard_resolved", handleHazardResolved);
+      }
+    };
   }, []);
 
   const handleSimulateWhatsAppReport = async () => {
@@ -141,6 +212,87 @@ export default function LiveDashboardView() {
       }
     } catch (err) {
       console.warn("WhatsApp test error:", err);
+    }
+  };
+
+  const handleSimulateDawkiReport = async () => {
+    try {
+      const blockedId = "seg-013";
+      // Clear previous resolved status for fresh demonstration of Dawki
+      try {
+        if (typeof window !== "undefined") {
+          const clearedRaw = localStorage.getItem("setu_cleared_corridors");
+          if (clearedRaw) {
+            const list = JSON.parse(clearedRaw).filter((id: string) => id !== blockedId);
+            localStorage.setItem("setu_cleared_corridors", JSON.stringify(list));
+            setClearedCorridors(list);
+          }
+          const resolvedRaw = localStorage.getItem("setu_resolved_incidents");
+          if (resolvedRaw) {
+            const obj = JSON.parse(resolvedRaw);
+            delete obj["inc-rep-ekh-002"];
+            delete obj["rep-ekh-002"];
+            delete obj["live-005"];
+            localStorage.setItem("setu_resolved_incidents", JSON.stringify(obj));
+          }
+
+          // Persist Dawki report as verified
+          const rawVR = localStorage.getItem("setu_verified_reports");
+          const vMap = rawVR ? JSON.parse(rawVR) : {};
+          vMap["rep-ekh-002"] = {
+            id: "rep-ekh-002",
+            status: "verified",
+            corridor_name: "Pynursla-Dawki Border Highway (NH-40)",
+            segment_id: "seg-013",
+            lat: 25.2104,
+            lng: 91.9541,
+            severity: 4,
+            description: "Active rockfall chute blocking northbound freight traffic. Multi-axle trucks impassable.",
+            verified_at: new Date().toISOString(),
+          };
+          localStorage.setItem("setu_verified_reports", JSON.stringify(vMap));
+
+          window.dispatchEvent(
+            new CustomEvent("setu_hazard_verified", { detail: vMap["rep-ekh-002"] })
+          );
+        }
+      } catch {}
+
+      setBlockedSegmentIds((prev) => Array.from(new Set([...prev, blockedId])));
+      setClearedCorridors((prev) => prev.filter((id) => id !== blockedId));
+      setResolvedNotice(null);
+
+      // Select route to Dawki
+      setOriginHubId("shillong_center");
+      setDestHubId("dawki");
+
+      const orig = KEY_HUBS.find((h) => h.id === "shillong_center");
+      const dest = KEY_HUBS.find((h) => h.id === "dawki");
+      if (orig && dest) {
+        const routeResp = await fetch("/api/routing/safe-route", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            origin_lat: orig.coords[0],
+            origin_lng: orig.coords[1],
+            dest_lat: dest.coords[0],
+            dest_lng: dest.coords[1],
+            blocked_segment_ids: [blockedId],
+            live_hazard_location: "Pynursla-Dawki Border Highway (NH-40)",
+          }),
+        });
+        if (routeResp.ok) {
+          const rData = await routeResp.json();
+          if (rData.safe_route) {
+            setSafeRoute(rData.safe_route);
+          }
+          if (rData.shortest_route) {
+            setShortestRoute(rData.shortest_route);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Dawki test error:", err);
     }
   };
 
@@ -395,6 +547,7 @@ export default function LiveDashboardView() {
             onMapStatsChange={setMapStats}
             resolvedNotice={resolvedNotice}
             onTriggerWhatsAppDemo={handleSimulateWhatsAppReport}
+            onTriggerDawkiDemo={handleSimulateDawkiReport}
             onResolveHazard={handleResolveHazard}
             onSelectHubAsOrigin={(hub) => setOriginHubId(hub.id)}
             onSelectHubAsDest={(hub) => setDestHubId(hub.id)}

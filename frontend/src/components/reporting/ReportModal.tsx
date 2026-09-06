@@ -302,13 +302,27 @@ export default function ReportModal({
       }
     }
 
-    // Always ensure stored in local IndexedDB queue
+    // Always ensure stored in local IndexedDB queue and localStorage for instantaneous cross-tab visibility
     await saveOfflineReport(queuedReport);
+
+    try {
+      if (typeof window !== "undefined") {
+        const raw = localStorage.getItem("setu_submitted_reports");
+        const list: any[] = raw ? JSON.parse(raw) : [];
+        if (!list.some((r) => r.id === queuedReport.id)) {
+          list.unshift(queuedReport);
+          localStorage.setItem("setu_submitted_reports", JSON.stringify(list));
+        }
+        window.dispatchEvent(
+          new CustomEvent("setu_new_report_submitted", { detail: queuedReport })
+        );
+      }
+    } catch {}
 
     setSubmitting(false);
     setStatusMessage(
       isOnline
-        ? "✅ Report submitted live! Visible to all incoming drivers."
+        ? "✅ Report submitted live! Visible in Officer Verification Queue & GIS Triage."
         : "📡 Offline: Report queued in IndexedDB. Will auto-sync when online."
     );
 

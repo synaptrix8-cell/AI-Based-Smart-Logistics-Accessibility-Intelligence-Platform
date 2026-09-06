@@ -635,6 +635,21 @@ export const EAST_KHASI_HILLS_SEGMENTS: RoadSegmentData[] = [
     ],
     factors: { rainfall_mm: 49.0, slope_deg: 35.0, active_reports: 2 },
   },
+  {
+    id: "seg-018",
+    name: "Jowai - Amlarem - Dawki Bypass Road (NH206 East)",
+    highway_ref: "NH206",
+    length_km: 64.2,
+    base_risk: 0.28,
+    risk_score: 0.28,
+    risk_level: "LOW",
+    coordinates: [
+      [92.01178, 25.70627], [92.0351, 25.6812], [92.0621, 25.6145], [92.0912, 25.5321],
+      [92.1245, 25.4412], [92.1389, 25.3854], [92.1292, 25.3182], [92.0945, 25.2654],
+      [92.0581, 25.2142], [92.02501, 25.18559],
+    ],
+    factors: { rainfall_mm: 18.0, slope_deg: 12.0, active_reports: 0 },
+  },
 ];
 
 // District boundary polygon for East Khasi Hills (GeoJSON-like coordinates: [lat, lng])
@@ -859,12 +874,10 @@ export function computeClientSafeRoute(
         if (useRiskPenalty) {
           if (edge.isBlocked) {
             weight *= 1000.0; // Extreme blockage avoidance penalty
+          } else if (edge.risk >= 0.85) {
+            weight *= 35.0; // Avoid verified severe active hazard zones
           } else {
-            let multiplier = 1.0 + 8.0 * (edge.risk ** 2);
-            if (edge.risk >= avoidRiskAbove) {
-              multiplier *= 35.0; // Avoid high geotechnical hazard zones
-            }
-            weight *= multiplier;
+            weight *= (1.0 + 3.0 * (edge.risk ** 2));
           }
         }
 

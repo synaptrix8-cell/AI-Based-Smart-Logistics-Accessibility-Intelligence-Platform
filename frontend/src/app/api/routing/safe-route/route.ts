@@ -117,36 +117,40 @@ export async function POST(request: NextRequest) {
         blocked_segment_ids.some((id: string) => id === "seg-001" || id === "seg-002" || id === "seg-003" || id === "seg-004") ||
         (live_hazard_location && (live_hazard_location.toLowerCase().includes("umsning") || live_hazard_location.toLowerCase().includes("nh6") || live_hazard_location.toLowerCase().includes("descent")));
 
+      const isDawkiBlocked =
+        blocked_segment_ids.some((id: string) => id === "seg-013" || id === "seg-014" || id === "seg-ekh-011" || id === "seg-012") ||
+        (live_hazard_location && (live_hazard_location.toLowerCase().includes("dawki") || live_hazard_location.toLowerCase().includes("pynursla") || live_hazard_location.toLowerCase().includes("nh40")));
+
       // Geographic route-corridor intersection check:
       // A route only crosses NH-6 (Umsning hazard) if it connects the northern gateway (lat >= 25.75) with the south (lat <= 25.68).
       // Routes entirely within the southern sector (e.g. Cherrapunji <-> Shillong / Umiam) DO NOT touch NH-6!
       const minLat = Math.min(origin_lat, dest_lat);
       const maxLat = Math.max(origin_lat, dest_lat);
+      const maxLng = Math.max(origin_lng, dest_lng);
 
       const routeTraversesNh6 = maxLat >= 25.75 && minLat <= 25.68;
       const routeTraversesSohra = minLat <= 25.32 && maxLat >= 25.45;
+      const routeTraversesDawki = minLat <= 25.26 && (maxLng >= 91.95 || minLat <= 25.21);
 
       const isRouteBlockedByNh6 = isNh6Blocked && routeTraversesNh6;
       const isRouteBlockedBySohra = isSohraBlocked && routeTraversesSohra;
+      const isRouteBlockedByDawki = isDawkiBlocked && routeTraversesDawki;
 
-      const routePassesNh6HighRisk = routeTraversesNh6 && avoidRiskThreshold <= 0.70;
-      const routePassesSohraHighRisk = routeTraversesSohra && avoidRiskThreshold <= 0.70;
-
-      // Only avoid hazard if the corridor on THIS specific transit path is actually blocked or exceeds risk threshold
+      // Only avoid hazard if an actual blocked hazard is active on this specific transit corridor!
+      // If the hazard was cleared or resolved, this is FALSE, and the route immediately takes the direct highway.
       const shouldAvoidHazard =
         isRouteBlockedByNh6 ||
         isRouteBlockedBySohra ||
-        routePassesNh6HighRisk ||
-        routePassesSohraHighRisk;
+        isRouteBlockedByDawki;
 
       let safeCoords = roadCoords;
       let safeDistKm = distKm;
-      let safeRisk = isRouteBlockedByNh6 ? 0.76 : isRouteBlockedBySohra ? 0.82 : 0.28;
+      let safeRisk = isRouteBlockedByNh6 ? 0.76 : isRouteBlockedBySohra ? 0.82 : isRouteBlockedByDawki ? 0.79 : 0.24;
       let shortestRisk = safeRisk;
       let riskReductionPct = 0;
       let isRerouted = false;
       let rerouteReason = "";
-      let vehicleAdvisory = "Direct highway transit permitted. All open road sectors within accepted risk threshold.";
+      let vehicleAdvisory = "Direct highway transit permitted. Road is clear and safe for all transport.";
 
       // Compute dynamic road-following detour via OSRM only when an actual hazard/block is on this route
       if (shouldAvoidHazard) {
@@ -154,14 +158,18 @@ export async function POST(request: NextRequest) {
           let detourWaypoint: string | null = null;
           let blockedName = "Identified Hazard Sector";
 
-          if (isRouteBlockedByNh6 || routePassesNh6HighRisk) {
+          if (isRouteBlockedByNh6) {
             // Bypass NH-6 via Shillong East Bypass
             detourWaypoint = "91.980,25.640";
             blockedName = "NH-6 Umiam / Umsning Corridor";
-          } else if (isRouteBlockedBySohra || routePassesSohraHighRisk) {
+          } else if (isRouteBlockedBySohra) {
             // Bypass SH-5 via Mawphlang - Weiloi Ridge
             detourWaypoint = "91.685,25.390";
             blockedName = "SH-5 Mawkdok-Cherrapunji Pass";
+          } else if (isRouteBlockedByDawki) {
+            // Bypass NH-40 Pynursla - Dawki via Jowai / Amlarem Highway
+            detourWaypoint = "92.120,25.320";
+            blockedName = "NH-40 Pynursla - Dawki Border Corridor";
           }
 
           if (detourWaypoint) {
@@ -185,7 +193,7 @@ export async function POST(request: NextRequest) {
                   riskReductionPct = Math.round(((shortestRisk - safeRisk) / Math.max(0.01, shortestRisk)) * 100) || 68;
                   isRerouted = true;
 
-                  if (isRouteBlockedByNh6 || isRouteBlockedBySohra) {
+                  if (isRouteBlockedByNh6 || isRouteBlockedBySohra || isRouteBlockedByDawki) {
                     rerouteReason = `Real-Time Hazard Alert: ${blockedName} confirmed blocked. Automatically rerouted via verified alternate bypass.`;
                   } else {
                     rerouteReason = `Active High-Risk Warning: Elevated landslide susceptibility on ${blockedName}. Automatically rerouted via verified alternate bypass.`;

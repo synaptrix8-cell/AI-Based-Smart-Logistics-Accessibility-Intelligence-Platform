@@ -27,7 +27,7 @@ const INITIAL_DEMO_REPORTS: IncidentItem[] = [
     id: "rep-ekh-001",
     category: "landslide",
     corridor_name: "Cherrapunji Gorgeside Pass (SH-5 South)",
-    segment_id: "seg-ekh-007",
+    segment_id: "seg-010",
     lat: 25.2891,
     lng: 91.7102,
     severity: 4,
@@ -39,14 +39,14 @@ const INITIAL_DEMO_REPORTS: IncidentItem[] = [
   },
   {
     id: "rep-ekh-002",
-    category: "other",
-    corridor_name: "Pynursla-Dawki Border Highway (NH-206)",
-    segment_id: "seg-ekh-011",
+    category: "road_damage",
+    corridor_name: "Pynursla-Dawki Border Highway (NH-40)",
+    segment_id: "seg-013",
     lat: 25.2104,
     lng: 91.9541,
     severity: 3,
     description: "Partial rockfall chute blocking northbound freight traffic. Light vehicles navigating via shoulder.",
-    encrypted_payload: "Encrypted AES-GCM Payload",
+    encrypted_payload: "Encrypted AES-GCM Payload (Border Transport Hash)",
     iv: "iv_dawki_96bit",
     status: "unverified",
     created_at: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
@@ -55,7 +55,7 @@ const INITIAL_DEMO_REPORTS: IncidentItem[] = [
     id: "rep-ekh-003",
     category: "flood",
     corridor_name: "Upper Shillong-Mawphlang Arterial (SH-5)",
-    segment_id: "seg-ekh-005",
+    segment_id: "seg-008",
     lat: 25.4601,
     lng: 91.7612,
     severity: 2,
@@ -65,6 +65,13 @@ const INITIAL_DEMO_REPORTS: IncidentItem[] = [
   },
 ];
 
+import {
+  markReportVerified,
+  getStoredVerifiedReports,
+  getStoredClearedCorridors,
+  getStoredResolvedIncidents,
+} from "@/lib/hazard-sync";
+
 export default function VerificationQueueView({
   isDemo = false,
 }: {
@@ -73,10 +80,77 @@ export default function VerificationQueueView({
   const [reports, setReports] = useState<IncidentItem[]>(INITIAL_DEMO_REPORTS);
   const [filter, setFilter] = useState<"all" | "unverified" | "verified" | "rejected">("all");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [clearedCorridorIds, setClearedCorridorIds] = useState<string[]>([]);
+  const [resolvedIncidentIds, setResolvedIncidentIds] = useState<string[]>([]);
 
   useEffect(() => {
     async function loadReports() {
-      // 1. Load pending reports from offline IndexedDB queue
+      // 1. Read persistent verification state from localStorage to survive hard refresh
+      let verifiedStatusMap = getStoredVerifiedReports();
+      setClearedCorridorIds(getStoredClearedCorridors());
+      setResolvedIncidentIds(Object.keys(getStoredResolvedIncidents()));
+
+      // 2. Fetch server-side verified reports from API
+      try {
+        const verifyResp = await fetch("/api/reports/verify");
+        if (verifyResp.ok) {
+          const vData = await verifyResp.json();
+          if (vData.verified_reports && Array.isArray(vData.verified_reports)) {
+            vData.verified_reports.forEach((vr: any) => {
+              verifiedStatusMap[vr.id] = vr;
+            });
+          }
+        }
+      } catch {}
+
+      // 3. Check official clearance state from /api/alerts/resolve
+      try {
+        const resResp = await fetch("/api/alerts/resolve");
+        if (resResp.ok) {
+          const rData = await resResp.json();
+          if (rData.cleared_corridors) {
+            setClearedCorridorIds((prev) => Array.from(new Set([...prev, ...rData.cleared_corridors])));
+          }
+          if (rData.resolved_ids) {
+            setResolvedIncidentIds((prev) => Array.from(new Set([...prev, ...rData.resolved_ids])));
+          }
+        }
+      } catch {}
+
+      // Apply saved statuses to initial reports
+      let currentReports = INITIAL_DEMO_REPORTS.map((r) => {
+        if (verifiedStatusMap[r.id]) {
+          return { ...r, status: verifiedStatusMap[r.id].status as any };
+        }
+        return r;
+      });
+
+      // 4. Load custom submitted reports from localStorage
+      try {
+        if (typeof window !== "undefined") {
+          const rawSubmitted = localStorage.getItem("setu_submitted_reports");
+          if (rawSubmitted) {
+            const submittedList: any[] = JSON.parse(rawSubmitted);
+            const mappedSubmitted: IncidentItem[] = submittedList.map((r) => ({
+              id: r.id,
+              category: r.category,
+              corridor_name: r.corridor_name || r.nearest_landmark || "East Khasi Hills Corridor",
+              segment_id: r.segment_id || "seg-002",
+              lat: r.lat,
+              lng: r.lng,
+              severity: r.severity || 3,
+              description: r.description || "Field incident reported",
+              status: (verifiedStatusMap[r.id]?.status || "unverified") as any,
+              created_at: r.created_at,
+            }));
+            const existingIds = new Set(currentReports.map((p) => p.id));
+            const freshSubmitted = mappedSubmitted.filter((m) => !existingIds.has(m.id));
+            currentReports = [...freshSubmitted, ...currentReports];
+          }
+        }
+      } catch {}
+
+      // 5. Load pending reports from offline IndexedDB queue
       try {
         const offline = await getPendingReports();
         if (offline.length > 0) {
@@ -91,21 +165,19 @@ export default function VerificationQueueView({
             description: r.description,
             encrypted_payload: r.encrypted_payload,
             iv: r.iv,
-            status: "unverified",
+            status: (verifiedStatusMap[r.id]?.status || "unverified") as any,
             created_at: r.created_at,
           }));
 
-          setReports((prev) => {
-            const existingIds = new Set(prev.map((p) => p.id));
-            const fresh = mapped.filter((m) => !existingIds.has(m.id));
-            return [...fresh, ...prev];
-          });
+          const existingIds = new Set(currentReports.map((p) => p.id));
+          const fresh = mapped.filter((m) => !existingIds.has(m.id));
+          currentReports = [...fresh, ...currentReports];
         }
       } catch (err) {
         console.warn("Could not check offline IndexedDB queue:", err);
       }
 
-      // 2. If not demo, try fetching real reports from Supabase
+      // 6. If not demo, fetch real reports from Supabase
       if (!isDemo) {
         try {
           const supabase = createClient();
@@ -127,29 +199,96 @@ export default function VerificationQueueView({
               description: r.encrypted_payload || "Field incident reported",
               encrypted_payload: r.encrypted_payload,
               iv: r.iv,
-              status: r.status,
+              status: (verifiedStatusMap[r.id]?.status || r.status) as any,
               created_at: r.created_at,
             }));
-            setReports(mapped);
+            currentReports = mapped;
           }
         } catch (err) {
           console.warn("Supabase reports query error:", err);
         }
       }
+
+      setReports(currentReports);
     }
 
     loadReports();
+
+    const handleNewReportEvent = (e: any) => {
+      const r = e.detail;
+      if (!r) return;
+      setReports((prev) => {
+        if (prev.some((p) => p.id === r.id)) return prev;
+        return [
+          {
+            id: r.id,
+            category: r.category,
+            corridor_name: r.corridor_name || r.nearest_landmark || "East Khasi Hills Corridor",
+            segment_id: r.segment_id || "seg-002",
+            lat: r.lat,
+            lng: r.lng,
+            severity: r.severity || 3,
+            description: r.description || "Field incident reported",
+            status: "unverified",
+            created_at: r.created_at,
+          },
+          ...prev,
+        ];
+      });
+    };
+
+    const handleHazardResolvedEvent = (e: any) => {
+      const { corridorId, incidentId } = e.detail || {};
+      if (corridorId) {
+        setClearedCorridorIds((prev) => Array.from(new Set([...prev, corridorId])));
+      }
+      if (incidentId) {
+        setResolvedIncidentIds((prev) => Array.from(new Set([...prev, incidentId])));
+      }
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("setu_new_report_submitted", handleNewReportEvent);
+      window.addEventListener("setu_hazard_resolved", handleHazardResolvedEvent);
+    }
+
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("setu_new_report_submitted", handleNewReportEvent);
+        window.removeEventListener("setu_hazard_resolved", handleHazardResolvedEvent);
+      }
+    };
   }, [isDemo]);
 
   function showToast(msg: string) {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
+    setTimeout(() => setToastMessage(null), 4000);
   }
 
   async function handleVerify(id: string) {
+    const targetReport = reports.find((r) => r.id === id);
+    if (!targetReport) return;
+
+    // Use unified hazard-sync to mark verified, un-clear corridor, and update all stores
+    markReportVerified({
+      id: targetReport.id,
+      category: targetReport.category,
+      corridor_name: targetReport.corridor_name,
+      segment_id: targetReport.segment_id,
+      lat: targetReport.lat,
+      lng: targetReport.lng,
+      severity: targetReport.severity,
+      description: targetReport.description,
+    });
+
     setReports((prev) =>
       prev.map((r) => (r.id === id ? { ...r, status: "verified" as const } : r))
     );
+
+    // Remove corridor from cleared corridors state
+    const segId = targetReport.segment_id || (id === "rep-ekh-002" ? "seg-013" : "seg-010");
+    setClearedCorridorIds((prev) => prev.filter((cid) => cid !== segId));
+    setResolvedIncidentIds((prev) => prev.filter((rid) => rid !== id && rid !== `inc-${id}`));
 
     if (!isDemo) {
       try {
@@ -163,13 +302,27 @@ export default function VerificationQueueView({
       }
     }
 
-    showToast("✅ Incident marked VERIFIED. Corridor hazard status elevated across network!");
+    showToast(`✅ ${targetReport.corridor_name} VERIFIED! Listed on GIS Risk Map & Avoidance Route Active.`);
   }
 
   async function handleReject(id: string) {
     setReports((prev) =>
       prev.map((r) => (r.id === id ? { ...r, status: "rejected" as const } : r))
     );
+
+    try {
+      if (typeof window !== "undefined") {
+        const raw = localStorage.getItem("setu_verified_reports");
+        const vMap = raw ? JSON.parse(raw) : {};
+        vMap[id] = { id, status: "rejected" };
+        localStorage.setItem("setu_verified_reports", JSON.stringify(vMap));
+      }
+      await fetch("/api/reports/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: "rejected" }),
+      });
+    } catch {}
 
     if (!isDemo) {
       try {
@@ -386,22 +539,59 @@ export default function VerificationQueueView({
                     </button>
                   </>
                 ) : (
-                  <button
-                    disabled
-                    style={{
-                      width: "100%",
-                      padding: "8px",
-                      borderRadius: "8px",
-                      background: "var(--color-bg)",
-                      border: "1px solid var(--color-border)",
-                      color: "var(--color-text-muted)",
-                      fontSize: "0.8rem",
-                      fontWeight: 600,
-                      cursor: "default",
-                    }}
-                  >
-                    Status Locked: {report.status.toUpperCase()}
-                  </button>
+                  <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "6px" }}>
+                    {report.status === "verified" && (
+                      <div
+                        style={{
+                          fontSize: "0.72rem",
+                          fontWeight: 700,
+                          padding: "4px 8px",
+                          borderRadius: "6px",
+                          textAlign: "center",
+                          background:
+                            clearedCorridorIds.includes(report.segment_id || "") ||
+                            resolvedIncidentIds.includes(report.id) ||
+                            resolvedIncidentIds.includes(`inc-${report.id}`)
+                              ? "rgba(34, 197, 94, 0.15)"
+                              : "rgba(239, 68, 68, 0.15)",
+                          color:
+                            clearedCorridorIds.includes(report.segment_id || "") ||
+                            resolvedIncidentIds.includes(report.id) ||
+                            resolvedIncidentIds.includes(`inc-${report.id}`)
+                              ? "#16a34a"
+                              : "#dc2626",
+                          border:
+                            clearedCorridorIds.includes(report.segment_id || "") ||
+                            resolvedIncidentIds.includes(report.id) ||
+                            resolvedIncidentIds.includes(`inc-${report.id}`)
+                              ? "1px solid #86efac"
+                              : "1px solid #fca5a5",
+                        }}
+                      >
+                        {clearedCorridorIds.includes(report.segment_id || "") ||
+                        resolvedIncidentIds.includes(report.id) ||
+                        resolvedIncidentIds.includes(`inc-${report.id}`)
+                          ? "🟢 Hazard Fixed & Road Reopened (PWD Cleared)"
+                          : "🔴 Active on GIS Risk Map • Auto-Detour Enforced"}
+                      </div>
+                    )}
+                    <button
+                      disabled
+                      style={{
+                        width: "100%",
+                        padding: "8px",
+                        borderRadius: "8px",
+                        background: "var(--color-bg)",
+                        border: "1px solid var(--color-border)",
+                        color: "var(--color-text-muted)",
+                        fontSize: "0.8rem",
+                        fontWeight: 600,
+                        cursor: "default",
+                      }}
+                    >
+                      Status Locked: {report.status.toUpperCase()}
+                    </button>
+                  </div>
                 )}
               </div>
             </div>

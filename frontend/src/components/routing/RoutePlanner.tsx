@@ -169,6 +169,24 @@ export default function RoutePlanner({
     }
   }, [blockedSegmentIds, lastResult]);
 
+  // Immediately recompute route when a hazard is officially verified or fixed
+  useEffect(() => {
+    const handleRecomputeOnEvent = () => {
+      computeRef.current();
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("setu_hazard_resolved", handleRecomputeOnEvent);
+      window.addEventListener("setu_hazard_verified", handleRecomputeOnEvent);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("setu_hazard_resolved", handleRecomputeOnEvent);
+        window.removeEventListener("setu_hazard_verified", handleRecomputeOnEvent);
+      }
+    };
+  }, []);
+
   const handleClear = () => {
     setLastResult(null);
     onRouteCalculated(null, null, null, null);

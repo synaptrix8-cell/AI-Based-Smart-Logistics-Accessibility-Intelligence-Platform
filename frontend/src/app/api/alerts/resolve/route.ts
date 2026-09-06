@@ -11,8 +11,8 @@ export interface ResolvedRecord {
 }
 
 // Server-side persistent storage for official hazard resolutions across page refreshes
-const globalResolvedMap = new Map<string, ResolvedRecord>();
-const globalClearedCorridors = new Set<string>();
+export const globalResolvedMap = new Map<string, ResolvedRecord>();
+export const globalClearedCorridors = new Set<string>();
 
 export async function GET() {
   return NextResponse.json({
