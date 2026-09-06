@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   KEY_HUBS,
   KeyHub,
@@ -60,7 +60,7 @@ export default function RoutePlanner({
     if (selectedDestId) setDestId(selectedDestId);
   }, [selectedDestId]);
 
-  const handleComputeRoute = async () => {
+  const handleComputeRoute = useCallback(async () => {
     const originHub = KEY_HUBS.find((h) => h.id === originId);
     const destHub = KEY_HUBS.find((h) => h.id === destId);
 
@@ -121,7 +121,8 @@ export default function RoutePlanner({
         const clientRes = computeClientSafeRoute(
           originHub.coords,
           destHub.coords,
-          avoidRiskThreshold
+          avoidRiskThreshold,
+          blockedSegmentIds
         );
 
         const safe: RouteOverlay = {
@@ -148,7 +149,25 @@ export default function RoutePlanner({
     } finally {
       setIsCalculating(false);
     }
-  };
+  }, [originId, destId, avoidRiskThreshold, blockedSegmentIds, onRouteCalculated]);
+
+  // Keep a ref to handleComputeRoute so the blocked-change effect can call it safely
+  const computeRef = useRef(handleComputeRoute);
+  useEffect(() => {
+    computeRef.current = handleComputeRoute;
+  }, [handleComputeRoute]);
+
+  // Auto re-compute whenever blockedSegmentIds changes and a route was already calculated
+  const prevBlockedRef = useRef<string>(JSON.stringify(blockedSegmentIds));
+  useEffect(() => {
+    const currentStr = JSON.stringify(blockedSegmentIds);
+    if (prevBlockedRef.current !== currentStr) {
+      prevBlockedRef.current = currentStr;
+      if (lastResult) {
+        computeRef.current();
+      }
+    }
+  }, [blockedSegmentIds, lastResult]);
 
   const handleClear = () => {
     setLastResult(null);
@@ -174,7 +193,11 @@ export default function RoutePlanner({
           <select
             className={styles.selectInput}
             value={originId}
-            onChange={(e) => setOriginId(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setOriginId(val);
+              onOriginChange?.(val);
+            }}
           >
             {KEY_HUBS.map((hub) => (
               <option key={hub.id} value={hub.id}>
@@ -190,7 +213,11 @@ export default function RoutePlanner({
           <select
             className={styles.selectInput}
             value={destId}
-            onChange={(e) => setDestId(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setDestId(val);
+              onDestChange?.(val);
+            }}
           >
             {KEY_HUBS.map((hub) => (
               <option key={hub.id} value={hub.id} disabled={hub.id === originId}>

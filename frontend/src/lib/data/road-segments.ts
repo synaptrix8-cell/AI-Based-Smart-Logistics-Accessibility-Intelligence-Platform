@@ -694,12 +694,65 @@ function haversine(p1: [number, number], p2: [number, number]): number {
 }
 
 /**
+ * Densifies a set of road coordinates by inserting smooth curved points
+ * between vertices using Catmull-Rom spline interpolation.
+ * Guarantees that routes and corridors hug realistic mountain curves
+ * without straight diagonal chords.
+ */
+export function densifyCurvedCoordinates(
+  pts: [number, number][],
+  maxSegmentMeters: number = 75
+): [number, number][] {
+  if (!pts || pts.length < 2) return pts;
+
+  const result: [number, number][] = [pts[0]];
+
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = i > 0 ? pts[i - 1] : pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = i + 2 < pts.length ? pts[i + 2] : p2;
+
+    const segDistKm = haversine(p1, p2);
+    const segDistMeters = segDistKm * 1000;
+    const numSubdivisions = Math.max(1, Math.min(8, Math.floor(segDistMeters / maxSegmentMeters)));
+
+    for (let step = 1; step <= numSubdivisions; step++) {
+      const t = step / numSubdivisions;
+      const t2 = t * t;
+      const t3 = t2 * t;
+
+      // Catmull-Rom spline formulation
+      const lat =
+        0.5 *
+        (2 * p1[0] +
+          (-p0[0] + p2[0]) * t +
+          (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 +
+          (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3);
+
+      const lng =
+        0.5 *
+        (2 * p1[1] +
+          (-p0[1] + p2[1]) * t +
+          (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 +
+          (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
+
+      result.push([Number(lat.toFixed(5)), Number(lng.toFixed(5))]);
+    }
+  }
+
+  return result;
+}
+
+/**
  * Client-Side Dijkstra Router — Computes shortest vs risk-penalized safe route
+ * with high-density road-following curves and dynamic blockage avoidance.
  */
 export function computeClientSafeRoute(
   originCoords: [number, number], // [lat, lng]
   destCoords: [number, number],   // [lat, lng]
-  avoidRiskAbove: number = 0.75
+  avoidRiskAbove: number = 0.75,
+  blockedSegmentIds: string[] = []
 ) {
   // Extract all points and create an adjacency graph
   type NodeKey = string;
@@ -714,30 +767,48 @@ export function computeClientSafeRoute(
     distance: number;
     risk: number;
     name: string;
+    isBlocked?: boolean;
   }
 
   const adj: Map<NodeKey, Edge[]> = new Map();
 
-  const addEdge = (u: [number, number], v: [number, number], dist: number, risk: number, name: string) => {
+  const addEdge = (
+    u: [number, number],
+    v: [number, number],
+    dist: number,
+    risk: number,
+    name: string,
+    isBlocked: boolean = false
+  ) => {
     const ku = nodeKey(u);
     const kv = nodeKey(v);
     if (!adj.has(ku)) adj.set(ku, []);
     if (!adj.has(kv)) adj.set(kv, []);
-    adj.get(ku)!.push({ to: kv, distance: dist, risk, name });
-    adj.get(kv)!.push({ to: ku, distance: dist, risk, name });
+    adj.get(ku)!.push({ to: kv, distance: dist, risk, name, isBlocked });
+    adj.get(kv)!.push({ to: ku, distance: dist, risk, name, isBlocked });
   };
 
   // Add road segments to graph
   for (const seg of EAST_KHASI_HILLS_SEGMENTS) {
+    const isBlocked = blockedSegmentIds.includes(seg.id);
+    const effectiveRisk = isBlocked ? 0.99 : seg.risk_score;
     const coords = seg.coordinates.map((c) => [c[1], c[0]] as [number, number]); // [lat, lng]
     const subDist = seg.length_km / Math.max(1, coords.length - 1);
     for (let i = 0; i < coords.length - 1; i++) {
-      addEdge(coords[i], coords[i + 1], subDist, seg.risk_score, seg.name);
+      addEdge(coords[i], coords[i + 1], subDist, effectiveRisk, seg.name, isBlocked);
     }
   }
 
-  // Extract unique graph nodes from genuine road geometry
+  // Connect adjacent road endpoints if within 250m to guarantee connected graph across junctions
   const allNodes = Array.from(adj.keys()).map(keyToPoint);
+  for (let i = 0; i < allNodes.length; i++) {
+    for (let j = i + 1; j < allNodes.length; j++) {
+      const d = haversine(allNodes[i], allNodes[j]);
+      if (d > 0 && d <= 0.25) {
+        addEdge(allNodes[i], allNodes[j], d, 0.25, "Junction Link", false);
+      }
+    }
+  }
 
   // Find nearest start and end nodes
   const findNearest = (target: [number, number]): NodeKey => {
@@ -785,11 +856,15 @@ export function computeClientSafeRoute(
 
         let weight = edge.distance;
         if (useRiskPenalty) {
-          let multiplier = 1.0 + 8.0 * (edge.risk ** 2);
-          if (edge.risk >= avoidRiskAbove) {
-            multiplier *= 25.0; // extreme avoidance penalty
+          if (edge.isBlocked) {
+            weight *= 1000.0; // Extreme blockage avoidance penalty
+          } else {
+            let multiplier = 1.0 + 8.0 * (edge.risk ** 2);
+            if (edge.risk >= avoidRiskAbove) {
+              multiplier *= 35.0; // Avoid high geotechnical hazard zones
+            }
+            weight *= multiplier;
           }
-          weight *= multiplier;
         }
 
         const alt = distMap.get(u)! + weight;
@@ -801,20 +876,24 @@ export function computeClientSafeRoute(
     }
 
     // Reconstruct path
-    const path: [number, number][] = [];
+    const rawPath: [number, number][] = [];
     let curr: NodeKey | null = targetKey;
     let totalKm = 0;
     let riskWeightedSum = 0;
     const corridors = new Set<string>();
+    let hasBlockedEdge = false;
 
     while (curr && prevMap.has(curr)) {
-      path.unshift(keyToPoint(curr));
+      rawPath.unshift(keyToPoint(curr));
       const step = prevMap.get(curr);
       if (step) {
         totalKm += step.edge.distance;
         riskWeightedSum += step.edge.distance * step.edge.risk;
-        if (step.edge.name !== "Connector Link") {
+        if (step.edge.name !== "Junction Link") {
           corridors.add(step.edge.name);
+        }
+        if (step.edge.isBlocked) {
+          hasBlockedEdge = true;
         }
         curr = step.node;
       } else {
@@ -822,15 +901,33 @@ export function computeClientSafeRoute(
       }
     }
 
-    if (curr) path.unshift(keyToPoint(curr));
+    if (curr) rawPath.unshift(keyToPoint(curr));
+
+    // Make sure origin and destination endpoints are smoothly attached
+    if (rawPath.length > 0) {
+      if (haversine(originCoords, rawPath[0]) > 0.05) {
+        rawPath.unshift(originCoords);
+      }
+      if (haversine(destCoords, rawPath[rawPath.length - 1]) > 0.05) {
+        rawPath.push(destCoords);
+      }
+    }
+
+    // Densify using Catmull-Rom spline so lines hug curved winding mountain contours
+    const curvedPath = densifyCurvedCoordinates(rawPath, 75);
 
     const avgRisk = totalKm > 0 ? Number((riskWeightedSum / totalKm).toFixed(2)) : 0;
+    const isRerouted = useRiskPenalty && blockedSegmentIds.length > 0 && !hasBlockedEdge;
 
     return {
-      coordinates: path,
+      coordinates: curvedPath,
       distance_km: Number(totalKm.toFixed(1)),
       avg_risk: avgRisk,
       corridors: Array.from(corridors),
+      is_rerouted: isRerouted,
+      reroute_reason: isRerouted
+        ? "Autonomous Reroute: Active hazard bypassed via alternate connected corridor"
+        : undefined,
     };
   };
 

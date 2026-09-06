@@ -20,6 +20,7 @@ import {
   KeyHub,
   RoadSegmentData,
   getRiskColor,
+  densifyCurvedCoordinates,
 } from "@/lib/data/road-segments";
 import { createClient } from "@/lib/supabase/client";
 import styles from "./map.module.css";
@@ -379,6 +380,22 @@ export default function RiskMap({
     try {
       const raw = typeof window !== "undefined" ? localStorage.getItem("setu_resolved_incidents") : null;
       if (raw) storedResolved = JSON.parse(raw);
+
+      // Hydrate locally cleared corridors
+      const clearedRaw = typeof window !== "undefined" ? localStorage.getItem("setu_cleared_corridors") : null;
+      if (clearedRaw) {
+        const clearedList: string[] = JSON.parse(clearedRaw);
+        if (clearedList.length > 0) {
+          setSegments((prev) =>
+            prev.map((s) => {
+              if (clearedList.includes(s.id)) {
+                return { ...s, risk_score: s.base_risk ?? 0.32, risk_level: "LOW" };
+              }
+              return s;
+            })
+          );
+        }
+      }
     } catch {}
 
     const initialIncidents = seedIncidents.map((inc) => {
@@ -400,6 +417,16 @@ export default function RiskMap({
     fetch("/api/alerts/resolve")
       .then((r) => r.json())
       .then((data) => {
+        if (data?.cleared_corridors && Array.isArray(data.cleared_corridors)) {
+          setSegments((prev) =>
+            prev.map((s) => {
+              if (data.cleared_corridors.includes(s.id)) {
+                return { ...s, risk_score: s.base_risk ?? 0.32, risk_level: "LOW" };
+              }
+              return s;
+            })
+          );
+        }
         if (data?.resolved_incidents && Array.isArray(data.resolved_incidents)) {
           const sMap: Record<string, any> = { ...storedResolved };
           data.resolved_incidents.forEach((item: any) => {
@@ -468,6 +495,16 @@ export default function RiskMap({
       }
     } catch {}
 
+    const corrId = corridorId || "seg-002";
+    setSegments((prev) =>
+      prev.map((s) => {
+        if (s.id === corrId) {
+          return { ...s, risk_score: s.base_risk ?? 0.32, risk_level: "LOW" };
+        }
+        return s;
+      })
+    );
+
     setLiveIncidents((prev) =>
       prev.map((inc) => {
         if (inc.id === incidentId) {
@@ -483,7 +520,6 @@ export default function RiskMap({
       })
     );
 
-    const corrId = corridorId || "seg-002";
     const affectedSeg = segments.find((s) => s.id === corrId);
     const corridorName = affectedSeg?.name || "Corridor";
     setLocalResolvedNotice(
@@ -778,7 +814,8 @@ export default function RiskMap({
 
         {/* Road Segments */}
         {displayedSegments.map((seg) => {
-          const latLngs = seg.coordinates.map((c) => [c[1], c[0]] as [number, number]);
+          const rawLatLngs = seg.coordinates.map((c) => [c[1], c[0]] as [number, number]);
+          const latLngs = densifyCurvedCoordinates(rawLatLngs, 75);
           const isBlocked = blockedSegmentIds?.includes(seg.id);
           const effectiveRisk = isBlocked ? 0.98 : seg.risk_score;
           const color = isBlocked ? "#DC2626" : getRiskColor(effectiveRisk);
@@ -921,7 +958,7 @@ export default function RiskMap({
 
         {/* === LIVE INCIDENT MARKERS ON MAP === */}
         {liveIncidents
-          .filter((inc) => inc.coords)
+          .filter((inc) => inc.coords && inc.status === "ACTIVE")
           .map((inc) => {
             const incIcon = L.divIcon({
               className: "live-incident-icon",
@@ -1051,7 +1088,7 @@ export default function RiskMap({
         {/* Shortest Route Overlay — Only show when an active detour around a blocked hazard is applied */}
         {shortestRoute && shortestRoute.coordinates.length > 1 && safeRoute?.is_rerouted && (
           <Polyline
-            positions={shortestRoute.coordinates}
+            positions={densifyCurvedCoordinates(shortestRoute.coordinates, 60)}
             pathOptions={{
               color: "#DC2626",
               weight: 5,
@@ -1069,12 +1106,12 @@ export default function RiskMap({
           </Polyline>
         )}
 
-        {/* AI Safe Route Overlay — Dual-layer GPS navigation styling */}
+        {/* AI Safe Route Overlay — Dual-layer GPS navigation styling with realistic road curves */}
         {safeRoute && safeRoute.coordinates.length > 1 && (
           <>
             {/* Outer dark casing for high contrast against OpenStreetMap */}
             <Polyline
-              positions={safeRoute.coordinates}
+              positions={densifyCurvedCoordinates(safeRoute.coordinates, 60)}
               pathOptions={{
                 color: "#0F172A",
                 weight: 9,
@@ -1085,7 +1122,7 @@ export default function RiskMap({
             />
             {/* Core electric navigation track */}
             <Polyline
-              positions={safeRoute.coordinates}
+              positions={densifyCurvedCoordinates(safeRoute.coordinates, 60)}
               pathOptions={{
                 color: "#0284C7",
                 weight: 5,
