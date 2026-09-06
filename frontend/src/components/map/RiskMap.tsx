@@ -373,7 +373,63 @@ export default function RiskMap({
         source: "Central Water Commission (CWC) River Sensor",
       },
     ];
-    setLiveIncidents(seedIncidents);
+
+    // Check localStorage and /api/alerts/resolve for persisted official resolutions
+    let storedResolved: Record<string, { resolvedBy?: string; resolvedAt?: string }> = {};
+    try {
+      const raw = typeof window !== "undefined" ? localStorage.getItem("setu_resolved_incidents") : null;
+      if (raw) storedResolved = JSON.parse(raw);
+    } catch {}
+
+    const initialIncidents = seedIncidents.map((inc) => {
+      if (storedResolved[inc.id]) {
+        return {
+          ...inc,
+          status: "RESOLVED" as const,
+          severity: "LOW" as const,
+          resolvedBy: storedResolved[inc.id].resolvedBy || "Meghalaya PWD (NH Division) & SDRF Rapid Clearing Unit",
+          resolvedAt: storedResolved[inc.id].resolvedAt || "Verified Cleared",
+        };
+      }
+      return inc;
+    });
+
+    setLiveIncidents(initialIncidents);
+
+    // Sync with server /api/alerts/resolve
+    fetch("/api/alerts/resolve")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.resolved_incidents && Array.isArray(data.resolved_incidents)) {
+          const sMap: Record<string, any> = { ...storedResolved };
+          data.resolved_incidents.forEach((item: any) => {
+            sMap[item.incident_id] = {
+              resolvedBy: item.resolved_by,
+              resolvedAt: item.formatted_date,
+            };
+          });
+          try {
+            if (typeof window !== "undefined") {
+              localStorage.setItem("setu_resolved_incidents", JSON.stringify(sMap));
+            }
+          } catch {}
+          setLiveIncidents((prev) =>
+            prev.map((inc) => {
+              if (sMap[inc.id]) {
+                return {
+                  ...inc,
+                  status: "RESOLVED" as const,
+                  severity: "LOW" as const,
+                  resolvedBy: sMap[inc.id].resolvedBy,
+                  resolvedAt: sMap[inc.id].resolvedAt,
+                };
+              }
+              return inc;
+            })
+          );
+        }
+      })
+      .catch(() => {});
 
     // Update timeAgo labels every minute
     const updateInterval = setInterval(() => {
@@ -385,10 +441,32 @@ export default function RiskMap({
     return () => clearInterval(updateInterval);
   }, []);
 
-  // Handler for official marking hazard as fixed
+  // Handler for official marking hazard as fixed (persists across hard refresh!)
   const handleLocalResolve = (incidentId: string, corridorId?: string) => {
     const now = new Date();
     const resolvedTimeString = formatIncidentDate(now.toISOString());
+
+    // Persist to localStorage immediately
+    try {
+      if (typeof window !== "undefined") {
+        const raw = localStorage.getItem("setu_resolved_incidents");
+        const stored = raw ? JSON.parse(raw) : {};
+        stored[incidentId] = {
+          resolvedBy: "Meghalaya PWD (NH Division) & SDRF Rapid Clearing Unit",
+          resolvedAt: resolvedTimeString,
+        };
+        localStorage.setItem("setu_resolved_incidents", JSON.stringify(stored));
+
+        // Also persist cleared corridor
+        const corrId = corridorId || "seg-002";
+        const clearedRaw = localStorage.getItem("setu_cleared_corridors");
+        const clearedList: string[] = clearedRaw ? JSON.parse(clearedRaw) : [];
+        if (!clearedList.includes(corrId)) {
+          clearedList.push(corrId);
+          localStorage.setItem("setu_cleared_corridors", JSON.stringify(clearedList));
+        }
+      }
+    } catch {}
 
     setLiveIncidents((prev) =>
       prev.map((inc) => {

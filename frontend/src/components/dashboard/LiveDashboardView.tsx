@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DynamicRiskMap from "@/components/map/DynamicRiskMap";
 import RoutePlanner from "@/components/routing/RoutePlanner";
 import ReportModal from "@/components/reporting/ReportModal";
@@ -31,8 +31,49 @@ export default function LiveDashboardView() {
   const [blockedSegmentIds, setBlockedSegmentIds] = useState<string[]>([]);
   const [resolvedNotice, setResolvedNotice] = useState<string | null>(null);
 
+  // Sync persisted cleared corridors on mount across hard refreshes
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined") {
+        const clearedRaw = localStorage.getItem("setu_cleared_corridors");
+        if (clearedRaw) {
+          const clearedList: string[] = JSON.parse(clearedRaw);
+          setBlockedSegmentIds((prev) => prev.filter((id) => !clearedList.includes(id)));
+        }
+      }
+    } catch {}
+
+    fetch("/api/alerts/resolve")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.cleared_corridors && Array.isArray(data.cleared_corridors)) {
+          setBlockedSegmentIds((prev) =>
+            prev.filter((id) => !data.cleared_corridors.includes(id))
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const handleSimulateWhatsAppReport = async () => {
     try {
+      // Clear previous resolved status for fresh demonstration
+      try {
+        if (typeof window !== "undefined") {
+          const clearedRaw = localStorage.getItem("setu_cleared_corridors");
+          if (clearedRaw) {
+            const list = JSON.parse(clearedRaw).filter((id: string) => id !== "seg-002");
+            localStorage.setItem("setu_cleared_corridors", JSON.stringify(list));
+          }
+          const resolvedRaw = localStorage.getItem("setu_resolved_incidents");
+          if (resolvedRaw) {
+            const obj = JSON.parse(resolvedRaw);
+            delete obj["live-001"];
+            localStorage.setItem("setu_resolved_incidents", JSON.stringify(obj));
+          }
+        }
+      } catch {}
+
       const resp = await fetch("/api/alerts/inbound-whatsapp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -87,6 +128,18 @@ export default function LiveDashboardView() {
 
   const handleResolveHazard = async (corridorId: string = "seg-002", incidentId?: string) => {
     try {
+      // Persist cleared corridor to localStorage immediately so it survives hard-refresh
+      try {
+        if (typeof window !== "undefined") {
+          const clearedRaw = localStorage.getItem("setu_cleared_corridors");
+          const clearedList: string[] = clearedRaw ? JSON.parse(clearedRaw) : [];
+          if (!clearedList.includes(corridorId)) {
+            clearedList.push(corridorId);
+            localStorage.setItem("setu_cleared_corridors", JSON.stringify(clearedList));
+          }
+        }
+      } catch {}
+
       await fetch("/api/alerts/resolve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
