@@ -49,22 +49,11 @@ public/workbox-*.js.map
 # Docker
 *.log
 
-# Internal team notes and assistant instructions (local only)
+# Internal assistant instructions and local status (local only)
 CLAUDE.md
 */CLAUDE.md
 AGENTS.md
 */AGENTS.md
 PROJECT_STATUS.md
-ARCHITECTURE_AND_SIH_GUIDE.md
-ARCHITECTURE.md
-tools/
-workflows/
-frontend/README.md
 .vercel
 
-# Presentations and scratch dev scripts
-*.pptx
-PRESENTATION_SLIDES.md
-scripts/
-pnpm-workspace.yaml
-infra/supabase/seed/
