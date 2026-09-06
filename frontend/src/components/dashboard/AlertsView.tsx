@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { EAST_KHASI_HILLS_SEGMENTS } from "@/lib/data/road-segments";
 import styles from "@/app/dashboard/alerts/alerts.module.css";
 
@@ -86,10 +86,99 @@ export default function AlertsView() {
     },
   ]);
 
-  const [testSMSText, setTestSMSText] = useState(
-    "SETU RPT|CAT:landslide|SEV:5|LAT:25.280|LNG:91.750|COR:seg-011|MSG:Rockfall on Cherrapunji bypass"
+  // Live GPS Auto-Tracking State
+  const [gpsLat, setGpsLat] = useState<number>(25.2891);
+  const [gpsLng, setGpsLng] = useState<number>(91.7102);
+  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
+  const [isLocating, setIsLocating] = useState<boolean>(false);
+  const [gpsStatus, setGpsStatus] = useState<string>("Ready (Click to lock live device GPS)");
+  const [activePreset, setActivePreset] = useState<string>("cherrapunji");
+
+  // Interactive SMS Payload Fields
+  const [smsCategory, setSmsCategory] = useState<"landslide" | "flood" | "road_damage">("landslide");
+  const [smsSeverity, setSmsSeverity] = useState<number>(4);
+  const [smsCorridorId, setSmsCorridorId] = useState<string>("seg-010");
+  const [smsNotes, setSmsNotes] = useState<string>("Active mudslide debris blocking road");
+
+  const [testSMSText, setTestSMSText] = useState<string>(
+    "SETU RPT|CAT:landslide|SEV:4|LAT:25.289|LNG:91.710|COR:seg-010|MSG:Active mudslide debris blocking road"
   );
   const [isTestingSMS, setIsTestingSMS] = useState(false);
+
+  // Automatically resolve nearest road segment from GPS
+  function resolveNearestCorridor(lat: number, lng: number) {
+    let best = EAST_KHASI_HILLS_SEGMENTS[0];
+    let minD = Infinity;
+    for (const seg of EAST_KHASI_HILLS_SEGMENTS) {
+      for (const pt of seg.coordinates) {
+        const d = Math.hypot(lat - pt[1], lng - pt[0]);
+        if (d < minD) {
+          minD = d;
+          best = seg;
+        }
+      }
+    }
+    setSmsCorridorId(best.id);
+    return best;
+  }
+
+  // 1-Tap Live Device GPS Detection
+  const handleDetectGPS = () => {
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      alert("Geolocation is not supported by your browser. Using mountain corridor presets.");
+      return;
+    }
+    setIsLocating(true);
+    setGpsStatus("Acquiring high-accuracy satellite lock...");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const cLat = Number(pos.coords.latitude.toFixed(4));
+        const cLng = Number(pos.coords.longitude.toFixed(4));
+        const acc = Math.round(pos.coords.accuracy);
+        setGpsLat(cLat);
+        setGpsLng(cLng);
+        setGpsAccuracy(acc);
+        const resolved = resolveNearestCorridor(cLat, cLng);
+        setGpsStatus(`🛰️ Live GPS Locked: Lat ${cLat}, Lng ${cLng} (±${acc}m) • ${resolved.name}`);
+        setActivePreset("live_gps");
+        setIsLocating(false);
+      },
+      (err) => {
+        console.warn("GPS error:", err);
+        setGpsStatus("GPS low signal. Fallback to Cherrapunji Gorgeside active corridor.");
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
+
+  // Quick Preset Selection for Drivers
+  const handleSelectPreset = (preset: {
+    id: string;
+    name: string;
+    lat: number;
+    lng: number;
+    corridorId: string;
+    notes: string;
+    category: "landslide" | "flood" | "road_damage";
+    severity: number;
+  }) => {
+    setActivePreset(preset.id);
+    setGpsLat(preset.lat);
+    setGpsLng(preset.lng);
+    setGpsAccuracy(null);
+    setSmsCorridorId(preset.corridorId);
+    setSmsCategory(preset.category);
+    setSmsSeverity(preset.severity);
+    setSmsNotes(preset.notes);
+    setGpsStatus(`📍 Preset: ${preset.name} (${preset.lat}, ${preset.lng})`);
+  };
+
+  // Automatically code coordinates & parameters into 160-character SMS payload
+  useEffect(() => {
+    const payload = `SETU RPT|CAT:${smsCategory}|SEV:${smsSeverity}|LAT:${gpsLat.toFixed(3)}|LNG:${gpsLng.toFixed(3)}|COR:${smsCorridorId}|MSG:${smsNotes}`;
+    setTestSMSText(payload);
+  }, [smsCategory, smsSeverity, gpsLat, gpsLng, smsCorridorId, smsNotes]);
 
   const handleBroadcast = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -179,6 +268,38 @@ export default function AlertsView() {
           },
           ...prev,
         ]);
+
+        // Interconnect: Register SMS directly into the Officials' Verification Queue
+        try {
+          if (typeof window !== "undefined") {
+            const raw = localStorage.getItem("setu_submitted_reports");
+            const list = raw ? JSON.parse(raw) : [];
+            const seg = EAST_KHASI_HILLS_SEGMENTS.find(
+              (s) => s.id === (data.parsed?.corridor_id || smsCorridorId)
+            );
+            const smsReport = {
+              id: data.report_id || `sms-${Date.now()}`,
+              category: data.parsed?.category || smsCategory,
+              corridor_name: seg?.name || "East Khasi Hills Corridor",
+              segment_id: data.parsed?.corridor_id || smsCorridorId,
+              lat: data.parsed?.lat || gpsLat,
+              lng: data.parsed?.lng || gpsLng,
+              severity: data.parsed?.severity || smsSeverity,
+              description: `[INBOUND SMS via +919436128899] ${data.parsed?.notes || smsNotes}`,
+              status: "unverified",
+              created_at: new Date().toISOString(),
+            };
+
+            if (!list.some((r: any) => r.id === smsReport.id)) {
+              list.unshift(smsReport);
+              localStorage.setItem("setu_submitted_reports", JSON.stringify(list));
+              window.dispatchEvent(
+                new CustomEvent("setu_new_report_submitted", { detail: smsReport })
+              );
+            }
+          }
+        } catch {}
+
         setNotificationToast("Inbound SMS parsed successfully & added to Officials' Verification Queue!");
         setTimeout(() => setNotificationToast(null), 5000);
       } else {
@@ -370,36 +491,261 @@ export default function AlertsView() {
 
         <p style={{ fontSize: "0.8rem", color: "var(--color-text-secondary)", margin: 0 }}>
           When mobile data (3G/4G/5G) is completely unavailable in deep valleys like Cherrapunji or Dawki, drivers send
-          compressed 160-character SMS reports. Setu&apos;s inbound parser ingests these SMS payloads, verifies coordinates,
-          and automatically forwards them to the Officials&apos; Verification Queue.
+          compressed 160-character SMS reports. Setu&apos;s GPS engine tracks the vehicle&apos;s satellite position, automatically
+          codes latitude, longitude, and corridor markers into the payload, and forwards it to the Officials&apos; Verification Queue.
         </p>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "8px" }}>
-          {/* Simulated SMS Transmitter */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            <label className={styles.label}>Simulate Remote Driver SMS Transmission</label>
-            <input
-              type="text"
-              className={styles.input}
-              value={testSMSText}
-              onChange={(e) => setTestSMSText(e.target.value)}
-              style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem" }}
-            />
-            <button
-              type="button"
-              className={styles.dispatchBtn}
-              style={{ background: "#0A6847", borderColor: "#064E3B" }}
-              onClick={handleSimulateInboundSMS}
-              disabled={isTestingSMS}
-            >
-              <span>{isTestingSMS ? "Transmitting..." : "📨 Simulate Inbound Driver SMS"}</span>
-            </button>
+        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "20px", marginTop: "12px" }}>
+          {/* Left Column: Live GPS Auto-Tracker & Driver SMS Composer */}
+          <div className={styles.gpsBuilderCard}>
+            {/* Live GPS Bar */}
+            <div className={styles.gpsTrackerBar}>
+              <div className={styles.gpsCoordsDisplay}>
+                <span className={styles.gpsLivePulse} />
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: "0.85rem" }}>
+                    {gpsLat.toFixed(4)}° N, {gpsLng.toFixed(4)}° E
+                  </div>
+                  <div style={{ fontSize: "0.7rem", color: "#15803D" }}>
+                    {gpsAccuracy ? `Accuracy: ±${gpsAccuracy}m • ` : ""}{gpsStatus}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                className={styles.gpsDetectBtn}
+                onClick={handleDetectGPS}
+                disabled={isLocating}
+                title="Detect exact coordinates from device satellite GPS"
+              >
+                <span>{isLocating ? "🛰️ Acquiring Fix..." : "📍 1-Tap Auto-Detect GPS"}</span>
+              </button>
+            </div>
+
+            {/* Regional Corridor Presets */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "var(--color-text-secondary)" }}>
+                Quick Valley Corridor Presets:
+              </span>
+              <div className={styles.presetsRow}>
+                <button
+                  type="button"
+                  className={styles.presetChip}
+                  data-active={activePreset === "cherrapunji"}
+                  onClick={() =>
+                    handleSelectPreset({
+                      id: "cherrapunji",
+                      name: "Cherrapunji Gorgeside (SH-5)",
+                      lat: 25.2891,
+                      lng: 91.7102,
+                      corridorId: "seg-010",
+                      notes: "Active mudslide debris blocking road",
+                      category: "landslide",
+                      severity: 4,
+                    })
+                  }
+                >
+                  ⛰️ Cherrapunji Gorgeside (SH-5)
+                </button>
+                <button
+                  type="button"
+                  className={styles.presetChip}
+                  data-active={activePreset === "dawki"}
+                  onClick={() =>
+                    handleSelectPreset({
+                      id: "dawki",
+                      name: "Pynursla-Dawki Highway (NH-40)",
+                      lat: 25.2104,
+                      lng: 91.9541,
+                      corridorId: "seg-013",
+                      notes: "Rockfall chute blocking northbound freight",
+                      category: "landslide",
+                      severity: 3,
+                    })
+                  }
+                >
+                  🪨 Dawki Border (NH-40)
+                </button>
+                <button
+                  type="button"
+                  className={styles.presetChip}
+                  data-active={activePreset === "umsning"}
+                  onClick={() =>
+                    handleSelectPreset({
+                      id: "umsning",
+                      name: "Umsning Descent (NH-6)",
+                      lat: 25.748,
+                      lng: 91.896,
+                      corridorId: "seg-002",
+                      notes: "Culvert overflowing across highway",
+                      category: "flood",
+                      severity: 4,
+                    })
+                  }
+                >
+                  🌊 Umsning Descent (NH-6)
+                </button>
+                <button
+                  type="button"
+                  className={styles.presetChip}
+                  data-active={activePreset === "upper_shillong"}
+                  onClick={() =>
+                    handleSelectPreset({
+                      id: "upper_shillong",
+                      name: "Upper Shillong Arterial (SH-5)",
+                      lat: 25.4601,
+                      lng: 91.7612,
+                      corridorId: "seg-008",
+                      notes: "Waterlogging 200m passable for trucks",
+                      category: "flood",
+                      severity: 2,
+                    })
+                  }
+                >
+                  🌧️ Upper Shillong (SH-5)
+                </button>
+              </div>
+            </div>
+
+            {/* Interactive Builder Form */}
+            <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "10px" }}>
+              {/* Category */}
+              <div>
+                <label className={styles.label} style={{ fontSize: "0.72rem" }}>
+                  Hazard Category
+                </label>
+                <div className={styles.pillGroup}>
+                  <button
+                    type="button"
+                    className={styles.pillBtn}
+                    data-active={smsCategory === "landslide"}
+                    onClick={() => setSmsCategory("landslide")}
+                  >
+                    ⛰️ Landslide
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.pillBtn}
+                    data-active={smsCategory === "flood"}
+                    onClick={() => setSmsCategory("flood")}
+                  >
+                    🌊 Flood
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.pillBtn}
+                    data-active={smsCategory === "road_damage"}
+                    onClick={() => setSmsCategory("road_damage")}
+                  >
+                    🚧 Damage
+                  </button>
+                </div>
+              </div>
+
+              {/* Severity */}
+              <div>
+                <label className={styles.label} style={{ fontSize: "0.72rem" }}>
+                  Severity Level (1-5)
+                </label>
+                <div style={{ display: "flex", gap: "6px" }}>
+                  {[1, 2, 3, 4, 5].map((lvl) => (
+                    <button
+                      key={lvl}
+                      type="button"
+                      className={styles.severityBtn}
+                      data-active={smsSeverity === lvl}
+                      data-level={lvl}
+                      onClick={() => setSmsSeverity(lvl)}
+                    >
+                      {lvl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Corridor Selection & Description */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: "10px" }}>
+              <div>
+                <label className={styles.label} style={{ fontSize: "0.72rem" }}>
+                  Monitored Corridor
+                </label>
+                <select
+                  className={styles.select}
+                  value={smsCorridorId}
+                  onChange={(e) => setSmsCorridorId(e.target.value)}
+                  style={{ fontSize: "0.75rem", padding: "6px 8px" }}
+                >
+                  {EAST_KHASI_HILLS_SEGMENTS.map((seg) => (
+                    <option key={seg.id} value={seg.id}>
+                      {seg.name} ({seg.id})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className={styles.label} style={{ fontSize: "0.72rem" }}>
+                  Brief Notes / Road Condition
+                </label>
+                <input
+                  type="text"
+                  className={styles.input}
+                  value={smsNotes}
+                  onChange={(e) => setSmsNotes(e.target.value)}
+                  placeholder="e.g. Mudslide blocking downhill lane"
+                  style={{ fontSize: "0.75rem", padding: "6px 8px" }}
+                />
+              </div>
+            </div>
+
+            {/* Auto-Coded 160-Character Monospace Payload Display */}
+            <div className={styles.payloadBoxWrapper}>
+              <div className={styles.payloadFooter}>
+                <span style={{ fontWeight: 700, color: "var(--color-text-secondary)" }}>
+                  Auto-Coded 160-Char SMS Payload (Ready to Transmit):
+                </span>
+                <span style={{ color: testSMSText.length <= 160 ? "#16A34A" : "#DC2626", fontWeight: 700 }}>
+                  {testSMSText.length} / 160 chars (Fits 1 Standard GSM-7 SMS)
+                </span>
+              </div>
+              <div className={styles.payloadBox}>{testSMSText}</div>
+            </div>
+
+            {/* Dispatch Buttons */}
+            <div className={styles.actionRow}>
+              <button
+                type="button"
+                className={styles.dispatchBtn}
+                style={{ background: "#0A6847", borderColor: "#064E3B", flex: 1 }}
+                onClick={handleSimulateInboundSMS}
+                disabled={isTestingSMS}
+              >
+                <span>{isTestingSMS ? "Transmitting..." : "📨 Simulate Inbound Driver SMS"}</span>
+              </button>
+
+              <a
+                href={`sms:+919436128899?body=${encodeURIComponent(testSMSText)}`}
+                className={styles.nativeSmsBtn}
+                title="Opens your mobile phone's native SMS app with the pre-coded payload ready to send"
+              >
+                <span>📱 Open Phone SMS App</span>
+              </a>
+            </div>
           </div>
 
-          {/* Live Terminal Log */}
-          <div>
-            <label className={styles.label}>Gateway Activity Terminal</label>
-            <div className={styles.terminalBox}>
+          {/* Right Column: Live Gateway Terminal Activity */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <label className={styles.label} style={{ margin: 0 }}>
+                Gateway Activity Terminal
+              </label>
+              <span style={{ fontSize: "0.68rem", color: "#16A34A", fontWeight: 700 }}>
+                ● Cellular Modem Online (+91-9436128899)
+              </span>
+            </div>
+
+            <div className={styles.terminalBox} style={{ minHeight: "360px", maxHeight: "420px" }}>
               {terminalLogs.map((log) => (
                 <div key={log.id} className={styles.terminalLine}>
                   <span style={{ color: "#94A3B8" }}>[{log.time}] </span>
@@ -416,6 +762,10 @@ export default function AlertsView() {
                   </span>
                 </div>
               ))}
+            </div>
+
+            <div style={{ fontSize: "0.7rem", color: "var(--color-text-muted)", lineHeight: 1.4 }}>
+              💡 <strong>How it works:</strong> The remote driver taps <em>1-Tap Auto-Detect GPS</em>. Setu converts satellite coordinates into the compressed SMS syntax. Upon SMS receipt, the gateway parser extracts the hazard, calculates road risk, dispatches an automated ACK, and injects the report directly into the official triage queue.
             </div>
           </div>
         </div>
