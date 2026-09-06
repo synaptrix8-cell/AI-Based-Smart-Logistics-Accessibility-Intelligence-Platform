@@ -57,3 +57,8 @@ AGENTS.md
 PROJECT_STATUS.md
 .vercel
 
+# Office & Temp Locks
+~$*
+*.tmp
+*.bak
+
