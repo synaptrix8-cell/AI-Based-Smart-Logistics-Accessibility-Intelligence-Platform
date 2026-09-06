@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import DynamicRiskMap from "@/components/map/DynamicRiskMap";
+import type { MapRiskStats } from "@/components/map/RiskMap";
 import RoutePlanner from "@/components/routing/RoutePlanner";
 import ReportModal from "@/components/reporting/ReportModal";
 import { RoadSegmentData, EAST_KHASI_HILLS_SEGMENTS, KEY_HUBS } from "@/lib/data/road-segments";
@@ -32,6 +33,18 @@ export default function LiveDashboardView() {
   const [blockedSegmentIds, setBlockedSegmentIds] = useState<string[]>([]);
   const [clearedCorridors, setClearedCorridors] = useState<string[]>([]);
   const [resolvedNotice, setResolvedNotice] = useState<string | null>(null);
+  const [mapStats, setMapStats] = useState<MapRiskStats>(() => {
+    const high = EAST_KHASI_HILLS_SEGMENTS.filter((s) => s.risk_score >= 0.7).length;
+    const medium = EAST_KHASI_HILLS_SEGMENTS.filter((s) => s.risk_score >= 0.4 && s.risk_score < 0.7).length;
+    return {
+      total: EAST_KHASI_HILLS_SEGMENTS.length,
+      high,
+      medium,
+      low: EAST_KHASI_HILLS_SEGMENTS.length - high - medium,
+      activeHazards: 0,
+      resolvedHazards: 0,
+    };
+  });
 
   // Sync persisted cleared corridors on mount across hard refreshes
   useEffect(() => {
@@ -210,26 +223,9 @@ export default function LiveDashboardView() {
     setDestCoords(dest);
   };
 
-  const highRiskCount = EAST_KHASI_HILLS_SEGMENTS.filter((s) => {
-    if (clearedCorridors.includes(s.id)) return false;
-    const isBlocked = blockedSegmentIds.includes(s.id);
-    const eff = isBlocked ? 0.98 : s.risk_score;
-    return eff >= 0.7;
-  }).length;
-
-  const mediumRiskCount = EAST_KHASI_HILLS_SEGMENTS.filter((s) => {
-    if (clearedCorridors.includes(s.id)) return false;
-    const isBlocked = blockedSegmentIds.includes(s.id);
-    const eff = isBlocked ? 0.98 : s.risk_score;
-    return eff >= 0.4 && eff < 0.7 && !isBlocked;
-  }).length;
-
-  const lowRiskCount = EAST_KHASI_HILLS_SEGMENTS.filter((s) => {
-    const isBlocked = blockedSegmentIds.includes(s.id);
-    const isCleared = clearedCorridors.includes(s.id);
-    const eff = isBlocked ? 0.98 : (isCleared ? 0.32 : s.risk_score);
-    return eff < 0.4 && !isBlocked;
-  }).length;
+  const highRiskCount = mapStats.high;
+  const mediumRiskCount = mapStats.medium;
+  const lowRiskCount = mapStats.low;
 
   const isSelectedBlocked = selectedSegment ? blockedSegmentIds.includes(selectedSegment.id) : false;
   const selectedEffectiveRisk = isSelectedBlocked ? 0.98 : (selectedSegment?.risk_score ?? 0);
@@ -377,7 +373,9 @@ export default function LiveDashboardView() {
 
         <div className={styles.statusIndicator}>
           <span className={styles.pulseDot} />
-          <span>Real-time Risk Stream Active</span>
+          <span>
+            Real-time Risk Stream Active • {mapStats.activeHazards} Active Hazards
+          </span>
         </div>
       </div>
 
@@ -393,6 +391,8 @@ export default function LiveDashboardView() {
             destHubCoords={destCoords}
             filterRiskLevel={riskFilter}
             blockedSegmentIds={blockedSegmentIds}
+            clearedCorridorIds={clearedCorridors}
+            onMapStatsChange={setMapStats}
             resolvedNotice={resolvedNotice}
             onTriggerWhatsAppDemo={handleSimulateWhatsAppReport}
             onResolveHazard={handleResolveHazard}

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export interface ParsedSMSReport {
   category: "landslide" | "flood" | "road_damage" | "other";
   severity: number;
@@ -101,18 +103,32 @@ export async function POST(req: NextRequest) {
     let dbSaved = false;
     try {
       const supabase = await createClient();
-      const { error } = await supabase.from("reports").insert({
-        id: reportId,
-        category: parsed.category,
-        severity: parsed.severity,
-        lat: parsed.lat,
-        lng: parsed.lng,
-        segment_id: parsed.corridor_id || "seg-003",
-        encrypted_payload: `[INBOUND SMS via ${from}] ${parsed.notes || "Reported via emergency SMS channel"}`,
-        status: "pending_verification",
+      await supabase.from("sms_gateway_log").insert({
+        raw_message: text,
+        parsed_category: parsed.category,
+        parsed_segment: UUID_RE.test(parsed.corridor_id || "") ? parsed.corridor_id : null,
+        sender_phone: from,
+        processing_status: "processed",
         created_at: timestamp,
       });
-      if (!error) dbSaved = true;
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        const { error } = await supabase.from("reports").insert({
+          user_id: user.id,
+          category: parsed.category,
+          lat: parsed.lat,
+          lng: parsed.lng,
+          segment_id: UUID_RE.test(parsed.corridor_id || "") ? parsed.corridor_id : null,
+          encrypted_payload: `[INBOUND SMS via ${from}] ${parsed.notes || "Reported via emergency SMS channel"}`,
+          status: "unverified",
+          created_at: timestamp,
+        });
+        if (!error) dbSaved = true;
+      }
     } catch {
       // Offline fallback mode
     }

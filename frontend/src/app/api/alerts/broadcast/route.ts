@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const VALID_CHANNELS = new Set(["sms", "whatsapp", "push", "in_app"]);
+
 export async function GET() {
   return NextResponse.json({
     endpoint: "/api/alerts/broadcast",
@@ -36,20 +39,22 @@ export async function POST(req: NextRequest) {
 
     const alertId = `alt-${Date.now().toString(36)}`;
     const timestamp = new Date().toISOString();
+    const activeChannels = Array.isArray(channels)
+      ? channels.filter((channel: string) => VALID_CHANNELS.has(channel))
+      : ["sms", "push"];
 
-    // 1. Log to Supabase risk_alerts table if available
+    // 1. Log to the repo schema's alerts table if available.
     let dbSuccess = false;
     try {
       const supabase = await createClient();
-      const { error } = await supabase.from("risk_alerts").insert({
-        id: alertId,
-        title,
-        message,
-        severity,
-        target_corridor: target_corridor || "ALL_EAST_KHASI_HILLS",
-        channels,
-        created_at: timestamp,
-      });
+      const rows = activeChannels.map((channel: string) => ({
+        segment_id: UUID_RE.test(target_corridor || "") ? target_corridor : null,
+        risk_score: severity === "CRITICAL" ? 0.95 : severity === "HIGH" ? 0.78 : 0.55,
+        message: `${severity}: ${title} - ${message}`,
+        channel,
+        sent_at: timestamp,
+      }));
+      const { error } = await supabase.from("alerts").insert(rows);
       if (!error) dbSuccess = true;
     } catch {
       // Offline fallback mode
@@ -59,17 +64,17 @@ export async function POST(req: NextRequest) {
     const smsPayload = `[SETU EMERGENCY ALERT] ${severity}: ${title} - ${message}. Safe routing active: https://setu.ner`;
     const simulatedDispatches = {
       sms: {
-        sent: channels.includes("sms"),
+        sent: activeChannels.includes("sms"),
         recipient_count: 142, // Monitored truck drivers registered in East Khasi Hills
         payload: smsPayload.slice(0, 160),
       },
       whatsapp: {
-        sent: channels.includes("whatsapp"),
+        sent: activeChannels.includes("whatsapp"),
         recipient_count: 88,
         status: "DELIVERED_VIA_WEBHOOK",
       },
       web_push: {
-        sent: channels.includes("push"),
+        sent: activeChannels.includes("push"),
         recipient_count: 215,
         status: "BROADCAST_SENT",
       },
@@ -82,6 +87,7 @@ export async function POST(req: NextRequest) {
       severity,
       broadcast_at: timestamp,
       dispatches: simulatedDispatches,
+      channels: activeChannels,
       db_persisted: dbSuccess,
     });
   } catch (err: any) {

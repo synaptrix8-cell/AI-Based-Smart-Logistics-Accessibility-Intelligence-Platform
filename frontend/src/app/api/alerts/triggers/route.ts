@@ -23,19 +23,26 @@ export async function POST(req: NextRequest) {
       timestamp: new Date().toISOString(),
     }));
 
-    // Persist to Supabase if connected
+    // Persist to the repo schema's alerts table if connected.
     try {
       const supabase = await createClient();
       for (const alert of generatedAlerts) {
-        await supabase.from("risk_alerts").insert({
-          id: alert.id,
-          title: `⚠️ Auto Hazard: ${alert.corridor_name}`,
-          message: alert.trigger_reason,
-          severity: alert.severity,
-          target_corridor: alert.segment_id,
-          channels: ["sms", "push"],
-          created_at: alert.timestamp,
-        });
+        await supabase.from("alerts").insert([
+          {
+            segment_id: null,
+            risk_score: alert.severity === "CRITICAL" ? 0.95 : 0.78,
+            message: `Auto Hazard: ${alert.corridor_name}. ${alert.trigger_reason}. ${alert.advisory}`,
+            channel: "sms",
+            sent_at: alert.timestamp,
+          },
+          {
+            segment_id: null,
+            risk_score: alert.severity === "CRITICAL" ? 0.95 : 0.78,
+            message: `Auto Hazard: ${alert.corridor_name}. ${alert.trigger_reason}. ${alert.advisory}`,
+            channel: "push",
+            sent_at: alert.timestamp,
+          },
+        ]);
       }
     } catch {
       // Offline fallback mode

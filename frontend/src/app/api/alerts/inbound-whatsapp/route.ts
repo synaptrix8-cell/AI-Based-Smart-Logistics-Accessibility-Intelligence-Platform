@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { EAST_KHASI_HILLS_SEGMENTS } from "@/lib/data/road-segments";
 import { createClient } from "@/lib/supabase/server";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 interface IngestedWhatsAppHazard {
   id: string;
   from_number: string;
@@ -145,21 +147,35 @@ export async function POST(req: NextRequest) {
       LIVE_WHATSAPP_INCIDENTS.pop();
     }
 
-    // Attempt Supabase insert
+    // Attempt Supabase logging. External WhatsApp webhooks usually do not have a
+    // logged-in Supabase user, so report insertion is best-effort.
     try {
       const supabase = await createClient();
-      await supabase.from("reports").insert({
-        id: incident.id,
-        category: hazardType === "blockage" ? "other" : hazardType,
-        segment_id: matchedSeg.id,
-        corridor_name: locName,
-        lat: coords[0],
-        lng: coords[1],
-        severity: 5,
-        description: `[WhatsApp Verified from ${incident.from_number}] ${incident.raw_message}`,
-        status: "verified",
+      await supabase.from("sms_gateway_log").insert({
+        raw_message: incident.raw_message,
+        parsed_category: hazardType === "blockage" ? "other" : hazardType,
+        parsed_segment: UUID_RE.test(matchedSeg.id) ? matchedSeg.id : null,
+        sender_phone: incident.from_number,
+        processing_status: "processed",
         created_at: incident.timestamp,
       });
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        await supabase.from("reports").insert({
+          user_id: user.id,
+          category: hazardType === "blockage" ? "other" : hazardType,
+          segment_id: UUID_RE.test(matchedSeg.id) ? matchedSeg.id : null,
+          lat: coords[0],
+          lng: coords[1],
+          encrypted_payload: `[WhatsApp Verified from ${incident.from_number}] ${incident.raw_message}`,
+          status: "verified",
+          created_at: incident.timestamp,
+        });
+      }
     } catch {
       // Offline / fallback mode
     }

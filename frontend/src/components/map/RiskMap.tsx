@@ -22,7 +22,7 @@ import {
   getRiskColor,
   densifyCurvedCoordinates,
 } from "@/lib/data/road-segments";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, hasSupabaseBrowserEnv } from "@/lib/supabase/client";
 import styles from "./map.module.css";
 
 // Fix standard Leaflet default icon issues in bundlers
@@ -49,6 +49,8 @@ interface RiskMapProps {
   destHubCoords?: [number, number] | null;
   filterRiskLevel?: string;
   blockedSegmentIds?: string[];
+  clearedCorridorIds?: string[];
+  onMapStatsChange?: (stats: MapRiskStats) => void;
   resolvedNotice?: string | null;
   onTriggerWhatsAppDemo?: () => void;
   onResolveHazard?: (corridorId: string, incidentId?: string) => void;
@@ -58,6 +60,15 @@ interface RiskMapProps {
 
 const DEFAULT_CENTER: [number, number] = [25.5788, 91.8933];
 const DEFAULT_ZOOM = 10;
+
+export interface MapRiskStats {
+  total: number;
+  high: number;
+  medium: number;
+  low: number;
+  activeHazards: number;
+  resolvedHazards: number;
+}
 
 function MapViewController({
   targetCoords,
@@ -88,6 +99,8 @@ export default function RiskMap({
   destHubCoords,
   filterRiskLevel = "ALL",
   blockedSegmentIds = [],
+  clearedCorridorIds = [],
+  onMapStatsChange,
   resolvedNotice = null,
   onTriggerWhatsAppDemo,
   onResolveHazard,
@@ -105,6 +118,7 @@ export default function RiskMap({
   const [localResolvedNotice, setLocalResolvedNotice] = useState<string | null>(null);
   const [incidentTabFilter, setIncidentTabFilter] = useState<"ALL" | "ACTIVE" | "RESOLVED">("ALL");
   const [liveClock, setLiveClock] = useState<string>("");
+  const [hydratedClearedCorridorIds, setHydratedClearedCorridorIds] = useState<string[]>([]);
 
   // Automatically show banner when safeRoute is rerouted
   useEffect(() => {
@@ -385,6 +399,7 @@ export default function RiskMap({
       const clearedRaw = typeof window !== "undefined" ? localStorage.getItem("setu_cleared_corridors") : null;
       if (clearedRaw) {
         const clearedList: string[] = JSON.parse(clearedRaw);
+        setHydratedClearedCorridorIds(clearedList);
         if (clearedList.length > 0) {
           setSegments((prev) =>
             prev.map((s) => {
@@ -418,6 +433,9 @@ export default function RiskMap({
       .then((r) => r.json())
       .then((data) => {
         if (data?.cleared_corridors && Array.isArray(data.cleared_corridors)) {
+          setHydratedClearedCorridorIds((prev) =>
+            Array.from(new Set([...prev, ...data.cleared_corridors]))
+          );
           setSegments((prev) =>
             prev.map((s) => {
               if (data.cleared_corridors.includes(s.id)) {
@@ -474,11 +492,6 @@ export default function RiskMap({
     const resolvedTimeString = formatIncidentDate(now.toISOString());
     const corrId = corridorId || "seg-002";
     
-    // Call the parent handler so the global route recalculates!
-    if (onResolveHazard) {
-      onResolveHazard(corrId, incidentId);
-    }
-
     // Persist to localStorage immediately
     try {
       if (typeof window !== "undefined") {
@@ -530,6 +543,7 @@ export default function RiskMap({
     setLocalResolvedNotice(
       `${corridorName} verified 100% CLEARED by District PWD on ${resolvedTimeString}. Road reopened for normal freight transit.`
     );
+    setHydratedClearedCorridorIds((prev) => Array.from(new Set([...prev, corrId])));
 
     if (onResolveHazard) {
       onResolveHazard(corrId, incidentId);
@@ -538,6 +552,8 @@ export default function RiskMap({
 
   // === SUPABASE REALTIME: Listen for new incident reports ===
   useEffect(() => {
+    if (!hasSupabaseBrowserEnv()) return;
+
     const supabase = createClient();
     const reportsChannel = supabase
       .channel("live_incident_reports")
@@ -577,6 +593,7 @@ export default function RiskMap({
   useEffect(() => {
     async function loadLatestRiskScores() {
       try {
+        if (!hasSupabaseBrowserEnv()) return;
         const supabase = createClient();
         const { data, error } = await supabase
           .from("risk_scores")
@@ -616,6 +633,8 @@ export default function RiskMap({
 
   // Supabase Realtime subscription for road updates & risk changes
   useEffect(() => {
+    if (!hasSupabaseBrowserEnv()) return;
+
     const supabase = createClient();
     const channel = supabase
       .channel("live_road_risk_updates")
@@ -650,6 +669,57 @@ export default function RiskMap({
     };
   }, []);
 
+  const clearedIds = new Set([...clearedCorridorIds, ...hydratedClearedCorridorIds]);
+  const activeIncidents = liveIncidents.filter(
+    (inc) => inc.status === "ACTIVE" && (!inc.corridor_id || !clearedIds.has(inc.corridor_id))
+  );
+  const activeIncidentRiskByCorridor = new Map<string, number>();
+  activeIncidents.forEach((inc) => {
+    if (!inc.corridor_id) return;
+    const score = inc.severity === "CRITICAL" ? 0.98 : inc.severity === "HIGH" ? 0.78 : 0.55;
+    activeIncidentRiskByCorridor.set(
+      inc.corridor_id,
+      Math.max(activeIncidentRiskByCorridor.get(inc.corridor_id) || 0, score)
+    );
+  });
+
+  const getEffectiveRisk = (segment: RoadSegmentData) => {
+    if (clearedIds.has(segment.id)) return 0.32;
+    const incidentRisk = activeIncidentRiskByCorridor.get(segment.id) || 0;
+    if (blockedSegmentIds?.includes(segment.id)) return Math.max(0.98, incidentRisk);
+    return Math.max(segment.risk_score, incidentRisk);
+  };
+
+  const mapStats: MapRiskStats = segments.reduce(
+    (acc, segment) => {
+      const effectiveRisk = getEffectiveRisk(segment);
+      if (effectiveRisk >= 0.7) acc.high += 1;
+      else if (effectiveRisk >= 0.4) acc.medium += 1;
+      else acc.low += 1;
+      return acc;
+    },
+    {
+      total: segments.length,
+      high: 0,
+      medium: 0,
+      low: 0,
+      activeHazards: activeIncidents.length,
+      resolvedHazards: liveIncidents.filter((inc) => inc.status === "RESOLVED").length,
+    }
+  );
+
+  useEffect(() => {
+    onMapStatsChange?.(mapStats);
+  }, [
+    onMapStatsChange,
+    mapStats.total,
+    mapStats.high,
+    mapStats.medium,
+    mapStats.low,
+    mapStats.activeHazards,
+    mapStats.resolvedHazards,
+  ]);
+
   if (!isClient) {
     return (
       <div className={styles.mapLoading}>
@@ -661,8 +731,8 @@ export default function RiskMap({
 
   // Filter segments based on corridor display mode and risk level filter
   const displayedSegments = corridorDisplay === "OFF" ? [] : segments.filter((s) => {
-    const isBlocked = blockedSegmentIds?.includes(s.id);
-    const effectiveRisk = isBlocked ? 0.98 : s.risk_score;
+    const isBlocked = blockedSegmentIds?.includes(s.id) && !clearedIds.has(s.id);
+    const effectiveRisk = getEffectiveRisk(s);
 
     // First apply corridor display filter
     if (corridorDisplay === "HAZARDS" && effectiveRisk < 0.7) return false;
@@ -674,11 +744,6 @@ export default function RiskMap({
     return true;
   });
 
-  const highHazardSegments = segments.filter((s) => {
-    const isBlocked = blockedSegmentIds?.includes(s.id);
-    const effectiveRisk = isBlocked ? 0.98 : s.risk_score;
-    return effectiveRisk >= 0.7;
-  });
   const selectedSegmentObj = segments.find((s) => s.id === selectedSegmentId);
   const selectedSegmentCenter: [number, number] | null =
     selectedSegmentObj && selectedSegmentObj.coordinates.length > 0
@@ -704,7 +769,7 @@ export default function RiskMap({
             onClick={() => setShowHazardPins(!showHazardPins)}
             title="Toggle Hazard Alert Warnings"
           >
-            {showHazardPins ? `⚠️ Hazards (${highHazardSegments.length})` : "⚠️ Hazards: OFF"}
+            {showHazardPins ? `⚠️ Active Hazards (${activeIncidents.length})` : "⚠️ Hazards: OFF"}
           </button>
           <button
             type="button"
@@ -821,8 +886,9 @@ export default function RiskMap({
         {displayedSegments.map((seg) => {
           const rawLatLngs = seg.coordinates.map((c) => [c[1], c[0]] as [number, number]);
           const latLngs = densifyCurvedCoordinates(rawLatLngs, 15);
-          const isBlocked = blockedSegmentIds?.includes(seg.id);
-          const effectiveRisk = isBlocked ? 0.98 : seg.risk_score;
+          const isBlocked = blockedSegmentIds?.includes(seg.id) && !clearedIds.has(seg.id);
+          const hasActiveIncident = activeIncidentRiskByCorridor.has(seg.id);
+          const effectiveRisk = getEffectiveRisk(seg);
           const color = isBlocked ? "#DC2626" : getRiskColor(effectiveRisk);
           const isSelected = selectedSegmentId === seg.id;
           const isHighRisk = effectiveRisk >= 0.7;
@@ -857,6 +923,8 @@ export default function RiskMap({
                     <span style={{ color, fontWeight: 700 }}>
                       {isBlocked
                         ? "🔴 BLOCKED (LANDSLIDE DISRUPTION)"
+                        : hasActiveIncident
+                        ? "🔴 ACTIVE FIELD HAZARD"
                         : isHighRisk
                         ? "🔴 HAZARDOUS / HIGH SLIP RISK"
                         : isMediumRisk
@@ -884,6 +952,8 @@ export default function RiskMap({
                     <strong style={{ color }}>
                       {isBlocked
                         ? "🔴 Road Obstructed / Active Landslide"
+                        : hasActiveIncident
+                        ? "🔴 Active Field Hazard / Reroute"
                         : isHighRisk
                         ? "🔴 Severe Hazard / Reroute"
                         : isMediumRisk
@@ -912,7 +982,9 @@ export default function RiskMap({
                   </div>
 
                   <div style={{ marginTop: "8px", fontSize: "0.72rem", color: "#475569" }}>
-                    {isHighRisk
+                    {isBlocked || hasActiveIncident
+                      ? "⚠️ Active Incident Advisory: field report marks this corridor unsafe until official clearance."
+                      : isHighRisk
                       ? "⚠️ Geotechnical Advisory: Extreme slope + saturated soil. Multi-axle trucks must use alternate bypass."
                       : isMediumRisk
                       ? "⚡ Monsoon Advisory: Pavement wet, reduced traction. Keep speed under 35 km/h."
@@ -926,44 +998,41 @@ export default function RiskMap({
 
         {/* Pulsing Hazard Warning Pins on High-Risk Roads */}
         {showHazardPins &&
-          highHazardSegments.map((seg) => {
-            const midIdx = Math.floor(seg.coordinates.length / 2);
-            const pt = seg.coordinates[midIdx];
-            const hazardCoords: [number, number] = [pt[1], pt[0]];
+          activeIncidents
+            .filter((inc) => inc.coords)
+            .map((inc) => {
+              const hazardIcon = L.divIcon({
+                className: "hazard-pin-icon",
+                html: `<div class="${styles.hazardPin}">⚠️</div>`,
+                iconSize: [26, 26],
+                iconAnchor: [13, 13],
+              });
 
-            const hazardIcon = L.divIcon({
-              className: "hazard-pin-icon",
-              html: `<div class="${styles.hazardPin}">⚠️</div>`,
-              iconSize: [26, 26],
-              iconAnchor: [13, 13],
-            });
-
-            return (
-              <Marker key={`hazard-${seg.id}`} position={hazardCoords} icon={hazardIcon}>
-                <Popup>
-                  <div className={styles.popupCard} style={{ maxWidth: "240px" }}>
-                    <h4 style={{ color: "#EF4444", margin: "0 0 4px 0", fontSize: "0.85rem" }}>
-                      ⚠️ Active Hazard Zone
-                    </h4>
-                    <p style={{ margin: "0 0 6px 0", fontSize: "0.75rem", fontWeight: 700 }}>
-                      {seg.name} ({seg.highway_ref})
-                    </p>
-                    <p style={{ margin: "0 0 6px 0", fontSize: "0.72rem", color: "#475569" }}>
-                      Risk Index: <strong style={{ color: "#EF4444" }}>{seg.risk_score.toFixed(2)}</strong>.
-                      Heavy rainfall ({seg.factors.rainfall_mm} mm/h) on a {seg.factors.slope_deg}° mountain grade.
-                    </p>
-                    <div style={{ fontSize: "0.7rem", background: "#FEF2F2", padding: "6px", borderRadius: "4px", color: "#991B1B" }}>
-                      ⚡ Reroute Recommended: AI Safe Route automatically routes around this corridor.
+              return (
+                <Marker key={`hazard-${inc.id}`} position={inc.coords!} icon={hazardIcon}>
+                  <Popup>
+                    <div className={styles.popupCard} style={{ maxWidth: "240px" }}>
+                      <h4 style={{ color: "#EF4444", margin: "0 0 4px 0", fontSize: "0.85rem" }}>
+                        ⚠️ Active Field Hazard
+                      </h4>
+                      <p style={{ margin: "0 0 6px 0", fontSize: "0.75rem", fontWeight: 700 }}>
+                        {inc.title}
+                      </p>
+                      <p style={{ margin: "0 0 6px 0", fontSize: "0.72rem", color: "#475569" }}>
+                        {inc.location}. Source: {inc.source}
+                      </p>
+                      <div style={{ fontSize: "0.7rem", background: "#FEF2F2", padding: "6px", borderRadius: "4px", color: "#991B1B" }}>
+                        Reroute recommended until an official marks this hazard fixed.
+                      </div>
                     </div>
-                  </div>
-                </Popup>
-              </Marker>
-            );
-          })}
+                  </Popup>
+                </Marker>
+              );
+            })}
 
         {/* === LIVE INCIDENT MARKERS ON MAP === */}
         {liveIncidents
-          .filter((inc) => inc.coords && inc.status === "ACTIVE")
+          .filter((inc) => inc.coords && inc.status === "ACTIVE" && (!inc.corridor_id || !clearedIds.has(inc.corridor_id)))
           .map((inc) => {
             const incIcon = L.divIcon({
               className: "live-incident-icon",
@@ -1298,7 +1367,7 @@ export default function RiskMap({
         </div>
         <div className={styles.updatesHeaderRight}>
           <span className={styles.liveFeedBadge}>
-            ⚡ Active Feed: {liveIncidents.filter((i) => i.status !== "RESOLVED").length} Active Hazards
+            ⚡ Active Feed: {mapStats.activeHazards} Active Hazards
           </span>
           <div className={styles.updatesActionGroup}>
             {onTriggerWhatsAppDemo && (
@@ -1357,14 +1426,14 @@ export default function RiskMap({
           className={`${styles.tabBtn} ${incidentTabFilter === "ACTIVE" ? styles.activeTabBtn : ""}`}
           onClick={() => setIncidentTabFilter("ACTIVE")}
         >
-          🔴 Active Hazards ({liveIncidents.filter((i) => i.status !== "RESOLVED").length})
+          🔴 Active Hazards ({mapStats.activeHazards})
         </button>
         <button
           type="button"
           className={`${styles.tabBtn} ${incidentTabFilter === "RESOLVED" ? styles.activeTabBtn : ""}`}
           onClick={() => setIncidentTabFilter("RESOLVED")}
         >
-          🟢 Fixed & Cleared ({liveIncidents.filter((i) => i.status === "RESOLVED").length})
+          🟢 Fixed & Cleared ({mapStats.resolvedHazards})
         </button>
       </div>
 

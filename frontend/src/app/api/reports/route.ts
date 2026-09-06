@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 /**
  * GET /api/reports - Fetch incident reports with optional filtering
  * Query params: status (unverified|verified|rejected), category (landslide|flood|road_damage|other), limit
@@ -134,29 +136,32 @@ export async function POST(req: NextRequest) {
     const reportId = `rep-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 6)}`;
     const timestamp = new Date().toISOString();
 
-    // Attempt Supabase persistence
+    // Attempt Supabase persistence only when there is a real authenticated user.
+    // Demo segment IDs such as "seg-010" are intentionally not written into UUID columns.
     let dbSuccess = false;
     try {
       const supabase = await createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        throw new Error("No authenticated user for Supabase report insert");
+      }
+
       const insertData: any = {
-        id: reportId,
+        user_id: user.id,
         category,
-        segment_id: segment_id || null,
-        corridor_name: nearest_landmark || corridor_name || "East Khasi Hills Corridor",
+        segment_id: UUID_RE.test(segment_id || "") ? segment_id : null,
         lat,
         lng,
-        severity,
-        description,
-        encrypted_payload: encrypted_payload || null,
+        encrypted_payload:
+          encrypted_payload ||
+          `[${nearest_landmark || corridor_name || "East Khasi Hills Corridor"}] ${description}`,
         iv: iv || null,
         status: "unverified",
         created_at: timestamp,
       };
-
-      // Add photo if provided
-      if (photo_base64) {
-        insertData.photo_base64 = photo_base64;
-      }
 
       const { error } = await supabase.from("reports").insert(insertData);
       if (!error) dbSuccess = true;
