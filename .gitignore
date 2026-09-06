@@ -64,6 +64,7 @@ frontend/README.md
 
 # Presentations and scratch dev scripts
 *.pptx
+PRESENTATION_SLIDES.md
 scripts/
 pnpm-workspace.yaml
 infra/supabase/seed/
