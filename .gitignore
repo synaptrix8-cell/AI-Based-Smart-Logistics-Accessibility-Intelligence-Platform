@@ -61,3 +61,9 @@ tools/
 workflows/
 frontend/README.md
 .vercel
+
+# Presentations and scratch dev scripts
+*.pptx
+scripts/
+pnpm-workspace.yaml
+infra/supabase/seed/
