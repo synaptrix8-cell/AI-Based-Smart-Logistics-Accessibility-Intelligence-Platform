@@ -931,31 +931,52 @@ export function computeClientSafeRoute(
     const curvedPath = densifyCurvedCoordinates(rawPath, 75);
 
     const avgRisk = totalKm > 0 ? Number((riskWeightedSum / totalKm).toFixed(2)) : 0;
-    const isRerouted = useRiskPenalty && blockedSegmentIds.length > 0 && !hasBlockedEdge;
 
     return {
       coordinates: curvedPath,
       distance_km: Number(totalKm.toFixed(1)),
       avg_risk: avgRisk,
       corridors: Array.from(corridors),
-      is_rerouted: isRerouted,
-      reroute_reason: isRerouted
-        ? "Autonomous Reroute: Active hazard bypassed via alternate connected corridor"
-        : undefined,
+      hasBlockedEdge,
     };
   };
 
   const shortest = runDijkstra(false);
   const safe = runDijkstra(true);
 
-  const riskReduction = Math.max(
-    0,
-    Math.round(((shortest.avg_risk - safe.avg_risk) / Math.max(0.01, shortest.avg_risk)) * 100)
+  // A route is ONLY rerouted if the shortest direct path was actually blocked by a hazard,
+  // and the safe path found an alternate unblocked path avoiding it!
+  const isActuallyRerouted = Boolean(
+    shortest.hasBlockedEdge &&
+    !safe.hasBlockedEdge &&
+    (safe.distance_km !== shortest.distance_km || safe.avg_risk < shortest.avg_risk)
   );
 
+  const finalSafe = isActuallyRerouted
+    ? {
+        ...safe,
+        is_rerouted: true,
+        reroute_reason: "Autonomous Reroute: Active hazard bypassed via alternate connected corridor",
+      }
+    : {
+        ...shortest,
+        is_rerouted: false,
+        reroute_reason: undefined,
+      };
+
+  const riskReduction = isActuallyRerouted
+    ? Math.max(
+        0,
+        Math.round(((shortest.avg_risk - safe.avg_risk) / Math.max(0.01, shortest.avg_risk)) * 100)
+      )
+    : 0;
+
   return {
-    shortest_route: shortest,
-    safe_route: safe,
+    shortest_route: {
+      ...shortest,
+      is_rerouted: false,
+    },
+    safe_route: finalSafe,
     risk_reduction_pct: riskReduction,
   };
 }

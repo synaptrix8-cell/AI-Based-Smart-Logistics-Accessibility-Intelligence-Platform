@@ -1329,20 +1329,20 @@ export default function RiskMap({
           </>
         )}
 
-        {/* Origin Vehicle Marker */}
+        {/* Origin Departure Marker */}
         {originHubCoords && (
           <Marker
             position={originHubCoords}
             icon={L.divIcon({
               className: "origin-truck-icon",
-              html: `<div style="background: #16A34A; color: white; border: 2px solid white; border-radius: 20px; padding: 2px 8px; font-size: 0.72rem; font-weight: 800; white-space: nowrap; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 4px; transform: translate(-50%, -50%);">
-                <span>🚚</span><span>Start</span>
+              html: `<div style="background: #16A34A; color: white; border: 2.5px solid white; border-radius: 50%; width: 26px; height: 26px; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.6); display: flex; align-items: center; justify-content: center; font-size: 13px; transform: translate(-50%, -50%);">
+                🚚
               </div>`,
-              iconSize: [64, 24],
-              iconAnchor: [32, 12],
+              iconSize: [26, 26],
+              iconAnchor: [13, 13],
             })}
           >
-            <Tooltip permanent direction="top">🟢 Route Origin (Freight Departure)</Tooltip>
+            <Tooltip permanent direction="top" offset={[0, -14]}>🟢 Route Origin (Freight Departure)</Tooltip>
           </Marker>
         )}
 
@@ -1352,14 +1352,14 @@ export default function RiskMap({
             position={destHubCoords}
             icon={L.divIcon({
               className: "dest-flag-icon",
-              html: `<div style="background: #1D4ED8; color: white; border: 2px solid white; border-radius: 20px; padding: 2px 8px; font-size: 0.72rem; font-weight: 800; white-space: nowrap; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 4px; transform: translate(-50%, -50%);">
-                <span>🏁</span><span>Destination</span>
+              html: `<div style="background: #1D4ED8; color: white; border: 2.5px solid white; border-radius: 50%; width: 26px; height: 26px; box-shadow: 0 4px 12px rgba(29, 78, 216, 0.6); display: flex; align-items: center; justify-content: center; font-size: 13px; transform: translate(-50%, -50%);">
+                🏁
               </div>`,
-              iconSize: [96, 24],
-              iconAnchor: [48, 12],
+              iconSize: [26, 26],
+              iconAnchor: [13, 13],
             })}
           >
-            <Tooltip permanent direction="top">📍 Destination (Relief Hub)</Tooltip>
+            <Tooltip permanent direction="top" offset={[0, -14]}>📍 Destination (Relief Hub)</Tooltip>
           </Marker>
         )}
       </MapContainer>

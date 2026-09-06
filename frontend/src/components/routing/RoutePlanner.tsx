@@ -130,19 +130,24 @@ export default function RoutePlanner({
           distance_km: clientRes.safe_route.distance_km,
           avg_risk: clientRes.safe_route.avg_risk,
           corridors: clientRes.safe_route.corridors,
+          is_rerouted: clientRes.safe_route.is_rerouted,
+          reroute_reason: clientRes.safe_route.reroute_reason,
         };
         const shortest: RouteOverlay = {
           coordinates: clientRes.shortest_route.coordinates,
           distance_km: clientRes.shortest_route.distance_km,
           avg_risk: clientRes.shortest_route.avg_risk,
           corridors: clientRes.shortest_route.corridors,
+          is_rerouted: false,
         };
 
         setLastResult({
           safe,
           shortest,
           riskReductionPct: clientRes.risk_reduction_pct,
-          vehicleAdvisory: "Verified road network corridor. Passable for heavy logistics trucks.",
+          vehicleAdvisory: clientRes.safe_route.is_rerouted
+            ? "🛡️ Autonomous Reroute Active: Detoured around active hazard via alternate corridor."
+            : "Direct highway transit permitted. Road is clear and safe for all transport.",
         });
         onRouteCalculated(safe, shortest, originHub.coords, destHub.coords);
       }

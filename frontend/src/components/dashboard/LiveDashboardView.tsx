@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import DynamicRiskMap from "@/components/map/DynamicRiskMap";
 import type { MapRiskStats } from "@/components/map/RiskMap";
 import RoutePlanner from "@/components/routing/RoutePlanner";
@@ -375,6 +375,13 @@ export default function LiveDashboardView() {
     setDestCoords(dest);
   };
 
+  const handleMapStatsChange = useCallback((stats: MapRiskStats) => {
+    setMapStats(stats);
+    if (stats.activeHazards === 0) {
+      setBlockedSegmentIds((prev) => (prev.length > 0 ? [] : prev));
+    }
+  }, []);
+
   const highRiskCount = mapStats.high;
   const mediumRiskCount = mapStats.medium;
   const lowRiskCount = mapStats.low;
@@ -544,7 +551,7 @@ export default function LiveDashboardView() {
             filterRiskLevel={riskFilter}
             blockedSegmentIds={blockedSegmentIds}
             clearedCorridorIds={clearedCorridors}
-            onMapStatsChange={setMapStats}
+            onMapStatsChange={handleMapStatsChange}
             resolvedNotice={resolvedNotice}
             onTriggerWhatsAppDemo={handleSimulateWhatsAppReport}
             onTriggerDawkiDemo={handleSimulateDawkiReport}

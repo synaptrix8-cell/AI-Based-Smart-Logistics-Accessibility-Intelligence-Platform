@@ -109,43 +109,69 @@ export async function POST(request: NextRequest) {
       }
 
       // 2. Evaluate active hazard against explicitly blocked corridors or live incident reports
-      const isSohraBlocked =
-        blocked_segment_ids.some((id: string) => id === "seg-010" || id === "seg-011" || id === "seg-012") ||
-        (live_hazard_location && (live_hazard_location.toLowerCase().includes("sohra") || live_hazard_location.toLowerCase().includes("cherrapunji") || live_hazard_location.toLowerCase().includes("mawkdok")));
-
-      const isNh6Blocked =
-        blocked_segment_ids.some((id: string) => id === "seg-001" || id === "seg-002" || id === "seg-003" || id === "seg-004") ||
-        (live_hazard_location && (live_hazard_location.toLowerCase().includes("umsning") || live_hazard_location.toLowerCase().includes("nh6") || live_hazard_location.toLowerCase().includes("descent")));
-
-      const isDawkiBlocked =
-        blocked_segment_ids.some((id: string) => id === "seg-013" || id === "seg-014" || id === "seg-ekh-011" || id === "seg-012") ||
-        (live_hazard_location && (live_hazard_location.toLowerCase().includes("dawki") || live_hazard_location.toLowerCase().includes("pynursla") || live_hazard_location.toLowerCase().includes("nh40")));
-
-      // Geographic route-corridor intersection check:
-      // A route only crosses NH-6 (Umsning hazard) if it connects the northern gateway (lat >= 25.75) with the south (lat <= 25.68).
-      // Routes entirely within the southern sector (e.g. Cherrapunji <-> Shillong / Umiam) DO NOT touch NH-6!
       const minLat = Math.min(origin_lat, dest_lat);
       const maxLat = Math.max(origin_lat, dest_lat);
+      const minLng = Math.min(origin_lng, dest_lng);
       const maxLng = Math.max(origin_lng, dest_lng);
 
-      const routeTraversesNh6 = maxLat >= 25.75 && minLat <= 25.68;
+      // Traversal bounds for known key corridors in East Khasi Hills & Ri-Bhoi:
+      // A route only traverses a corridor if both the geographic endpoints intersect that corridor.
+
+      // NH-6 Nongpoh - Umsning (seg-001): Lat 25.75 to 25.90
+      const routeTraversesNongpohUmsning = maxLat >= 25.75 && minLat <= 25.75;
+
+      // NH-6 Umsning - Umiam Lake Sector (seg-002): Lat 25.66 to 25.75
+      // Nongpoh (25.891) <-> Umiam (25.660) traverses this.
+      // Nongpoh <-> Shillong / Cherrapunji traverses this.
+      // Cherrapunji <-> Shillong DOES NOT traverse this (maxLat is 25.57 < 25.66).
+      const routeTraversesUmsningUmiam = maxLat >= 25.72 && minLat <= 25.665;
+
+      // NH-6 Umiam - Shillong Central Descent (seg-003): Lat 25.57 to 25.66
+      // Nongpoh <-> Umiam DOES NOT traverse seg-003 because destination is Umiam (minLat = 25.660 >= 25.65)!
+      // Trips connecting Umiam/Nongpoh with Shillong / Upper Shillong / Sohra / Dawki DO traverse seg-003.
+      const routeTraversesUmiamShillong = maxLat >= 25.65 && minLat < 25.64;
+
+      // SH-5 Mawkdok - Cherrapunji (seg-010, seg-011, seg-012): Lat 25.27 to 25.46
       const routeTraversesSohra = minLat <= 25.32 && maxLat >= 25.45;
+
+      // NH-40 Pynursla - Dawki Border (seg-013, seg-014): Lat 25.18 to 25.35, Lng >= 91.95
       const routeTraversesDawki = minLat <= 25.26 && (maxLng >= 91.95 || minLat <= 25.21);
 
-      const isRouteBlockedByNh6 = isNh6Blocked && routeTraversesNh6;
+      // Check whether an active blockage is registered for each specific corridor:
+      const isSeg001Blocked = blocked_segment_ids.includes("seg-001");
+      const isSeg002Blocked =
+        blocked_segment_ids.includes("seg-002") ||
+        Boolean(live_hazard_location && (live_hazard_location.toLowerCase().includes("umsning") || live_hazard_location.toLowerCase().includes("umiam")));
+      const isSeg003Blocked =
+        blocked_segment_ids.includes("seg-003") ||
+        Boolean(live_hazard_location && live_hazard_location.toLowerCase().includes("descent"));
+      const isSohraBlocked =
+        blocked_segment_ids.some((id: string) => id === "seg-010" || id === "seg-011" || id === "seg-012") ||
+        Boolean(live_hazard_location && (live_hazard_location.toLowerCase().includes("sohra") || live_hazard_location.toLowerCase().includes("cherrapunji") || live_hazard_location.toLowerCase().includes("mawkdok")));
+      const isDawkiBlocked =
+        blocked_segment_ids.some((id: string) => id === "seg-013" || id === "seg-014" || id === "seg-ekh-011") ||
+        Boolean(live_hazard_location && (live_hazard_location.toLowerCase().includes("dawki") || live_hazard_location.toLowerCase().includes("pynursla") || live_hazard_location.toLowerCase().includes("nh40")));
+
+      // Route-specific intersection:
+      const isRouteBlockedByNongpohUmsning = isSeg001Blocked && routeTraversesNongpohUmsning;
+      const isRouteBlockedByUmsningUmiam = isSeg002Blocked && routeTraversesUmsningUmiam;
+      const isRouteBlockedByUmiamShillong = isSeg003Blocked && routeTraversesUmiamShillong;
       const isRouteBlockedBySohra = isSohraBlocked && routeTraversesSohra;
       const isRouteBlockedByDawki = isDawkiBlocked && routeTraversesDawki;
 
-      // Only avoid hazard if an actual blocked hazard is active on this specific transit corridor!
-      // If the hazard was cleared or resolved, this is FALSE, and the route immediately takes the direct highway.
+      // Only avoid hazard if an actual blocked hazard is active on THIS specific transit corridor!
+      // If the hazard was cleared or resolved, or on another unrelated corridor, this is FALSE,
+      // and the route immediately takes the direct highway with zero detour!
       const shouldAvoidHazard =
-        isRouteBlockedByNh6 ||
+        isRouteBlockedByNongpohUmsning ||
+        isRouteBlockedByUmsningUmiam ||
+        isRouteBlockedByUmiamShillong ||
         isRouteBlockedBySohra ||
         isRouteBlockedByDawki;
 
       let safeCoords = roadCoords;
       let safeDistKm = distKm;
-      let safeRisk = isRouteBlockedByNh6 ? 0.76 : isRouteBlockedBySohra ? 0.82 : isRouteBlockedByDawki ? 0.79 : 0.24;
+      let safeRisk = shouldAvoidHazard ? 0.78 : 0.22;
       let shortestRisk = safeRisk;
       let riskReductionPct = 0;
       let isRerouted = false;
@@ -158,10 +184,25 @@ export async function POST(request: NextRequest) {
           let detourWaypoint: string | null = null;
           let blockedName = "Identified Hazard Sector";
 
-          if (isRouteBlockedByNh6) {
-            // Bypass NH-6 via Shillong East Bypass
+          if (isRouteBlockedByNongpohUmsning || isRouteBlockedByUmsningUmiam) {
+            blockedName = isRouteBlockedByUmsningUmiam
+              ? "NH-6 Umsning / Umiam Lake Sector"
+              : "NH-6 Guwahati - Nongpoh Corridor";
+
+            // If destination is Umiam or northern sector (minLat >= 25.65), detour MUST stay NORTH of Umiam!
+            // We route via Bhoirymbong / Umroi Airport corridor (91.945, 25.710) directly into Umiam Lake Hub.
+            // DO NOT route via Shillong East Bypass (25.640) which is south of Umiam and causes a circular loop!
+            if (minLat >= 25.65) {
+              detourWaypoint = "91.945,25.710";
+            } else {
+              // Destination is south of Umiam (Shillong / Cherrapunji / Dawki):
+              // Bypass Umsning and Umiam descent via Shillong East Bypass
+              detourWaypoint = "91.980,25.640";
+            }
+          } else if (isRouteBlockedByUmiamShillong) {
+            blockedName = "NH-6 Umiam - Upper Shillong Descent";
+            // Bypass via Shillong East Bypass
             detourWaypoint = "91.980,25.640";
-            blockedName = "NH-6 Umiam / Umsning Corridor";
           } else if (isRouteBlockedBySohra) {
             // Bypass SH-5 via Mawphlang - Weiloi Ridge
             detourWaypoint = "91.685,25.390";
@@ -193,12 +234,7 @@ export async function POST(request: NextRequest) {
                   riskReductionPct = Math.round(((shortestRisk - safeRisk) / Math.max(0.01, shortestRisk)) * 100) || 68;
                   isRerouted = true;
 
-                  if (isRouteBlockedByNh6 || isRouteBlockedBySohra || isRouteBlockedByDawki) {
-                    rerouteReason = `Real-Time Hazard Alert: ${blockedName} confirmed blocked. Automatically rerouted via verified alternate bypass.`;
-                  } else {
-                    rerouteReason = `Active High-Risk Warning: Elevated landslide susceptibility on ${blockedName}. Automatically rerouted via verified alternate bypass.`;
-                  }
-
+                  rerouteReason = `Real-Time Hazard Alert: ${blockedName} confirmed blocked. Automatically rerouted via verified alternate bypass.`;
                   vehicleAdvisory = `🛡️ Live Reroute Active: Detoured around ${blockedName}. Multi-axle freight clearance confirmed on alternate corridor.`;
 
                   humanSteps.unshift(
