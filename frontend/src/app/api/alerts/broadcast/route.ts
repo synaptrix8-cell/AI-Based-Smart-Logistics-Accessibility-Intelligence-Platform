@@ -1,6 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+export async function GET() {
+  return NextResponse.json({
+    endpoint: "/api/alerts/broadcast",
+    method: "POST",
+    description:
+      "Dispatch emergency safety alerts to field drivers via SMS, WhatsApp, and Web Push channels.",
+    parameters: {
+      title: "string (required) - Alert headline",
+      message: "string (required) - Alert body text",
+      severity: "CRITICAL | HIGH | MEDIUM (default: HIGH)",
+      target_corridor: "string (optional) - Segment ID to target",
+      channels: "string[] (optional) - Array of: sms, whatsapp, push",
+    },
+    delivery_channels: {
+      sms: "142 registered freight drivers in East Khasi Hills",
+      whatsapp: "88 fleet operators via webhook integration",
+      web_push: "215 PWA-subscribed devices",
+    },
+  });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
