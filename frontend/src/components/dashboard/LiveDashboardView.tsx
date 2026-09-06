@@ -6,6 +6,7 @@ import RoutePlanner from "@/components/routing/RoutePlanner";
 import ReportModal from "@/components/reporting/ReportModal";
 import { RoadSegmentData, EAST_KHASI_HILLS_SEGMENTS, KEY_HUBS } from "@/lib/data/road-segments";
 import styles from "./dashboard-view.module.css";
+import pageStyles from "../../app/dashboard/dashboard.module.css";
 
 interface RouteOverlay {
   coordinates: [number, number][];
@@ -242,6 +243,42 @@ export default function LiveDashboardView() {
 
   return (
     <div className={styles.container}>
+      {/* Dynamic KPI Stats overview */}
+      <div className={pageStyles.statsGrid} style={{ marginBottom: "20px" }}>
+        <div className={`card ${pageStyles.statCard}`}>
+          <div className={pageStyles.statIcon}>🗺️</div>
+          <div className={pageStyles.statContent}>
+            <span className={pageStyles.statValue}>{EAST_KHASI_HILLS_SEGMENTS.length}</span>
+            <span className={pageStyles.statLabel}>Monitored Corridors</span>
+          </div>
+        </div>
+        <div className={`card ${pageStyles.statCard}`}>
+          <div className={pageStyles.statIcon}>⚠️</div>
+          <div className={pageStyles.statContent}>
+            <span className={pageStyles.statValue} style={{ color: highRiskCount > 0 ? "var(--risk-high)" : "var(--color-text)" }}>
+              {highRiskCount}
+            </span>
+            <span className={pageStyles.statLabel}>High Hazard Zones</span>
+          </div>
+        </div>
+        <div className={`card ${pageStyles.statCard}`}>
+          <div className={pageStyles.statIcon}>🌦️</div>
+          <div className={pageStyles.statContent}>
+            <span className={pageStyles.statValue}>4</span>
+            <span className={pageStyles.statLabel}>Active Weather Feeds</span>
+          </div>
+        </div>
+        <div className={`card ${pageStyles.statCard}`}>
+          <div className={pageStyles.statIcon}>🛡️</div>
+          <div className={pageStyles.statContent}>
+            <span className={pageStyles.statValue} style={{ color: "var(--color-primary-light)" }}>
+              Online
+            </span>
+            <span className={pageStyles.statLabel}>Dijkstra Safe Routing</span>
+          </div>
+        </div>
+      </div>
+
       {/* Active Regional Hazard Advisory Banner (Phase 4 integration) */}
       {!dismissAdvisory && (
         <div

@@ -121,42 +121,6 @@ export default async function DashboardPage({
 
       {/* Main content area */}
       <div className={styles.content}>
-        {/* KPI Stats overview */}
-        <div className={styles.statsGrid}>
-          <div className={`card ${styles.statCard}`}>
-            <div className={styles.statIcon}>🗺️</div>
-            <div className={styles.statContent}>
-              <span className={styles.statValue}>17</span>
-              <span className={styles.statLabel}>Monitored Corridors</span>
-            </div>
-          </div>
-          <div className={`card ${styles.statCard}`}>
-            <div className={styles.statIcon}>⚠️</div>
-            <div className={styles.statContent}>
-              <span className={styles.statValue} style={{ color: "var(--risk-high)" }}>
-                3
-              </span>
-              <span className={styles.statLabel}>High Hazard Zones</span>
-            </div>
-          </div>
-          <div className={`card ${styles.statCard}`}>
-            <div className={styles.statIcon}>🌦️</div>
-            <div className={styles.statContent}>
-              <span className={styles.statValue}>4</span>
-              <span className={styles.statLabel}>Active Weather Feeds</span>
-            </div>
-          </div>
-          <div className={`card ${styles.statCard}`}>
-            <div className={styles.statIcon}>🛡️</div>
-            <div className={styles.statContent}>
-              <span className={styles.statValue} style={{ color: "var(--color-primary-light)" }}>
-                Online
-              </span>
-              <span className={styles.statLabel}>Dijkstra Safe Routing</span>
-            </div>
-          </div>
-        </div>
-
         {/* Phase 2: Live GIS Map + AI Safe Route Planner */}
         <div className={styles.mapSection}>
           <LiveDashboardView />
