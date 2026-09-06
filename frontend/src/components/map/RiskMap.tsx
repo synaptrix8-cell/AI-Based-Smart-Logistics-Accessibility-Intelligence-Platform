@@ -24,7 +24,6 @@ import {
 } from "@/lib/data/road-segments";
 import { createClient, hasSupabaseBrowserEnv } from "@/lib/supabase/client";
 import { markHazardResolved } from "@/lib/hazard-sync";
-import { predictCorridorFailureRisk } from "@/lib/ml/landslide-model";
 import styles from "./map.module.css";
 
 // Fix standard Leaflet default icon issues in bundlers
@@ -1060,85 +1059,6 @@ export default function RiskMap({
                       <span className={styles.factorVal}>{seg.length_km} km</span>
                     </div>
                   </div>
-
-                  {/* 🧠 6-Hour AI Geotechnical Failure Forecast & Explainability */}
-                  {(() => {
-                    const mlForecast = predictCorridorFailureRisk({
-                      corridorId: seg.id,
-                      corridorName: seg.name,
-                      rainfall_24h_mm: seg.factors.rainfall_mm * 3.5,
-                      slope_angle_deg: seg.factors.slope_deg,
-                      soil_moisture_pct: Math.min(96, Math.round(50 + seg.factors.rainfall_mm * 1.5)),
-                      historical_slides: seg.factors.active_reports > 0 ? 3 : 1,
-                    });
-
-                    return (
-                      <div
-                        style={{
-                          marginTop: "10px",
-                          padding: "8px 10px",
-                          borderRadius: "8px",
-                          background: "#0f172a",
-                          border: "1px solid #334155",
-                          color: "#f8fafc",
-                        }}
-                      >
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                          <span style={{ fontSize: "0.72rem", fontWeight: 800, color: "#38bdf8", display: "flex", alignItems: "center", gap: "4px" }}>
-                            <span>🧠</span> 6h AI Geotechnical Forecast
-                          </span>
-                          <span
-                            style={{
-                              fontSize: "0.68rem",
-                              fontWeight: 800,
-                              padding: "2px 6px",
-                              borderRadius: "4px",
-                              background:
-                                mlForecast.failure_probability_6h >= 0.7
-                                  ? "#dc2626"
-                                  : mlForecast.failure_probability_6h >= 0.4
-                                  ? "#f59e0b"
-                                  : "#10b981",
-                              color: "#ffffff",
-                            }}
-                          >
-                            {(mlForecast.failure_probability_6h * 100).toFixed(0)}% Failure Prob
-                          </span>
-                        </div>
-
-                        <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginBottom: "6px" }}>
-                          <strong>ML Urgency:</strong>{" "}
-                          <span style={{ color: mlForecast.urgency === "IMMINENT_COLLAPSE" ? "#f87171" : mlForecast.urgency === "HIGH_VULNERABILITY" ? "#fbbf24" : "#4ade80" }}>
-                            {mlForecast.urgency.replace("_", " ")}
-                          </span>
-                        </div>
-
-                        {/* SHAP Feature Contributions */}
-                        <div style={{ display: "flex", flexDirection: "column", gap: "3px", borderTop: "1px solid #1e293b", paddingTop: "5px" }}>
-                          <span style={{ fontSize: "0.64rem", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                            Explainable AI Attribution (SHAP):
-                          </span>
-                          {mlForecast.explainability_shap.slice(0, 3).map((feat, idx) => (
-                            <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "0.66rem" }}>
-                              <span style={{ color: "#cbd5e1", maxWidth: "140px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {feat.feature}
-                              </span>
-                              <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                                <div style={{ width: "45px", height: "4px", background: "#334155", borderRadius: "2px", overflow: "hidden" }}>
-                                  <div style={{ width: `${Math.min(100, feat.contribution_pct)}%`, height: "100%", background: feat.contribution_pct > 30 ? "#f43f5e" : "#0ea5e9" }} />
-                                </div>
-                                <span style={{ color: "#94a3b8", width: "24px", textAlign: "right" }}>{feat.contribution_pct}%</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        <div style={{ marginTop: "6px", fontSize: "0.66rem", color: "#38bdf8", borderTop: "1px dashed #334155", paddingTop: "4px" }}>
-                          💡 {mlForecast.recommendation}
-                        </div>
-                      </div>
-                    );
-                  })()}
 
                   <div style={{ marginTop: "8px", fontSize: "0.72rem", color: "#475569" }}>
                     {isBlocked || hasActiveIncident

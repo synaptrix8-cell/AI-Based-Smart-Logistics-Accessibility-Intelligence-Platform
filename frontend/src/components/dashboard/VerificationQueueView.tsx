@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { decryptPayload } from "@/lib/crypto";
 import { QueuedReport, getPendingReports } from "@/lib/offline-queue";
 import { createClient } from "@/lib/supabase/client";
-import { triageFieldReport } from "@/lib/ml/vision-triage-model";
 import IncidentTimelineCard from "@/components/dashboard/IncidentTimelineCard";
 import styles from "@/app/dashboard/reports/reports.module.css";
 
@@ -507,98 +506,6 @@ export default function VerificationQueueView({
                   </button>
                 )}
               </div>
-
-              {/* 🤖 Edge AI Vision & Spam Triage */}
-              {(() => {
-                const triage = triageFieldReport({
-                  category: report.category,
-                  description: report.description,
-                  lat: report.lat,
-                  lng: report.lng,
-                  reportedByRole: "driver",
-                });
-
-                return (
-                  <div
-                    style={{
-                      background: "rgba(15, 23, 42, 0.65)",
-                      border: "1px solid rgba(56, 189, 248, 0.25)",
-                      borderRadius: "8px",
-                      padding: "8px 12px",
-                      margin: "8px 0 10px 0",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "6px",
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span style={{ fontSize: "0.72rem", fontWeight: 800, color: "#38bdf8" }}>
-                          🤖 Edge AI Vision Triage
-                        </span>
-                        <span
-                          style={{
-                            fontSize: "0.64rem",
-                            fontWeight: 700,
-                            padding: "2px 6px",
-                            borderRadius: "4px",
-                            background:
-                              triage.model_verdict === "AUTO_CONFIRM"
-                                ? "#065f46"
-                                : triage.model_verdict === "FLAG_FOR_REVIEW"
-                                ? "#854d0e"
-                                : "#991b1b",
-                            color: "#fff",
-                          }}
-                        >
-                          {triage.model_verdict.replace(/_/g, " ")}
-                        </span>
-                      </div>
-                      <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#94a3b8" }}>
-                        {triage.confidence_pct}% Trust Score
-                      </span>
-                    </div>
-
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", fontSize: "0.68rem" }}>
-                      <span style={{ color: "#cbd5e1" }}>
-                        <strong>Predicted:</strong> {triage.predicted_class.replace(/_/g, " ")}
-                      </span>
-                      <span
-                        style={{
-                          color: triage.spam_likelihood_pct > 35 ? "#f87171" : "#4ade80",
-                          fontWeight: 600,
-                        }}
-                      >
-                        {triage.spam_likelihood_pct > 35 ? "⚠️" : "🛡️"} Spam Risk: {triage.spam_likelihood_pct}%
-                      </span>
-                      <span style={{ color: triage.within_meghalaya_bounds ? "#60a5fa" : "#f87171" }}>
-                        📍 {triage.within_meghalaya_bounds ? "East Khasi Hills Validated" : "Outside Meghalaya Boundary"}
-                      </span>
-                    </div>
-
-                    {triage.extracted_visual_features.length > 0 && (
-                      <div style={{ display: "flex", alignItems: "center", gap: "4px", flexWrap: "wrap" }}>
-                        <span style={{ fontSize: "0.62rem", color: "#64748b" }}>Detected Features:</span>
-                        {triage.extracted_visual_features.map((feat: string, fi: number) => (
-                          <span
-                            key={fi}
-                            style={{
-                              fontSize: "0.6rem",
-                              background: "rgba(56, 189, 248, 0.12)",
-                              border: "1px solid rgba(56, 189, 248, 0.25)",
-                              color: "#7dd3fc",
-                              padding: "1px 5px",
-                              borderRadius: "4px",
-                            }}
-                          >
-                            {feat}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
 
               <div className={styles.statsRow}>
                 <div className={styles.gpsTag}>

@@ -390,56 +390,6 @@ export default function RoutePlanner({
             </div>
           </div>
 
-          {/* 🧠 6-Hour AI Safety Forecast Badge */}
-          <div
-            style={{
-              marginTop: "10px",
-              padding: "8px 12px",
-              background: "#0f172a",
-              border: "1px solid #334155",
-              borderRadius: "8px",
-              fontSize: "0.75rem",
-              color: "#f8fafc",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span style={{ fontSize: "1rem" }}>🧠</span>
-              <div>
-                <div style={{ fontWeight: 700, color: "#38bdf8" }}>
-                  6-Hour Predictive ML Corridor Health:
-                </div>
-                <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>
-                  Safe route avoids high-pore-pressure slope sectors (Predicted failure risk:{" "}
-                  <strong style={{ color: "#4ade80" }}>
-                    {Math.round(lastResult.safe.avg_risk * 28)}%
-                  </strong>
-                  {" vs "}
-                  <strong style={{ color: "#f87171" }}>
-                    {Math.round(lastResult.shortest.avg_risk * 82)}%
-                  </strong>
-                  {" on direct path"}
-                  ).
-                </div>
-              </div>
-            </div>
-            <span
-              style={{
-                fontSize: "0.68rem",
-                fontWeight: 700,
-                padding: "3px 8px",
-                borderRadius: "4px",
-                background: "#065f46",
-                color: "#34d399",
-                whiteSpace: "nowrap",
-              }}
-            >
-              ML PASS: STABLE
-            </span>
-          </div>
-
           {lastResult.safe.corridors.length > 0 && (
             <div className={styles.corridorList}>
               <span className={styles.corridorTitle}>Corridors Traversed:</span>
