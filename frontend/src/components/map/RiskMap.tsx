@@ -938,14 +938,18 @@ export default function RiskMap({
           <Polyline
             positions={shortestRoute.coordinates}
             pathOptions={{
-              color: "#F97316",
-              weight: 4,
-              dashArray: "8, 10",
-              opacity: 0.65,
+              color: "#DC2626",
+              weight: 5,
+              dashArray: "8, 8",
+              opacity: 0.85,
             }}
           >
             <Tooltip sticky>
-              Blocked Direct Route ({shortestRoute.distance_km} km, High Exposure Risk: {shortestRoute.avg_risk})
+              <div style={{ fontFamily: "sans-serif", fontSize: "0.75rem" }}>
+                <strong style={{ color: "#DC2626" }}>🔴 Impassable Blocked Highway</strong>
+                <div>Direct route obstructed by hazard ({shortestRoute.distance_km} km)</div>
+                <div style={{ fontSize: "0.68rem", color: "#64748B" }}>AI Safe Route diverted around this blockage</div>
+              </div>
             </Tooltip>
           </Polyline>
         )}
@@ -1075,6 +1079,20 @@ export default function RiskMap({
             <span className={styles.legendColorLine} style={{ background: "#0284C7" }} />
             <span>AI Safe Route (Blue)</span>
           </div>
+          {safeRoute?.is_rerouted && (
+            <div className={styles.compactLegendItem}>
+              <span
+                style={{
+                  display: "inline-block",
+                  width: "16px",
+                  height: "0px",
+                  borderTop: "3px dashed #DC2626",
+                  marginRight: "4px",
+                }}
+              />
+              <span style={{ color: "#DC2626", fontWeight: 700 }}>Blocked Direct Path</span>
+            </div>
+          )}
         </div>
 
         <button
