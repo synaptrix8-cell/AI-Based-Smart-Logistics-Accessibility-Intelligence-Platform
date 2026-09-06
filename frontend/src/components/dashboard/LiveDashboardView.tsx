@@ -151,9 +151,33 @@ export default function LiveDashboardView() {
     setDestCoords(dest);
   };
 
-  const highRiskCount = EAST_KHASI_HILLS_SEGMENTS.filter((s) => s.risk_score >= 0.7).length;
-  const mediumRiskCount = EAST_KHASI_HILLS_SEGMENTS.filter((s) => s.risk_score >= 0.4 && s.risk_score < 0.7).length;
-  const lowRiskCount = EAST_KHASI_HILLS_SEGMENTS.filter((s) => s.risk_score < 0.4).length;
+  const highRiskCount = EAST_KHASI_HILLS_SEGMENTS.filter((s) => {
+    const isBlocked = blockedSegmentIds.includes(s.id);
+    const eff = isBlocked ? 0.98 : s.risk_score;
+    return eff >= 0.7;
+  }).length;
+
+  const mediumRiskCount = EAST_KHASI_HILLS_SEGMENTS.filter((s) => {
+    const isBlocked = blockedSegmentIds.includes(s.id);
+    const eff = isBlocked ? 0.98 : s.risk_score;
+    return eff >= 0.4 && eff < 0.7 && !isBlocked;
+  }).length;
+
+  const lowRiskCount = EAST_KHASI_HILLS_SEGMENTS.filter((s) => {
+    const isBlocked = blockedSegmentIds.includes(s.id);
+    const eff = isBlocked ? 0.98 : s.risk_score;
+    return eff < 0.4 && !isBlocked;
+  }).length;
+
+  const isSelectedBlocked = selectedSegment ? blockedSegmentIds.includes(selectedSegment.id) : false;
+  const selectedEffectiveRisk = isSelectedBlocked ? 0.98 : (selectedSegment?.risk_score ?? 0);
+  const selectedRiskLevel = isSelectedBlocked
+    ? "CRITICAL (LANDSLIDE BLOCKED)"
+    : selectedEffectiveRisk >= 0.7
+    ? "HIGH / CRITICAL"
+    : selectedEffectiveRisk >= 0.4
+    ? "MEDIUM (CAUTION)"
+    : "LOW (PASSABLE)";
 
   return (
     <div className={styles.container}>
@@ -179,7 +203,7 @@ export default function LiveDashboardView() {
                 Active Regional Hazard Advisory: East Khasi Hills (Cherrapunji & NH-6 Sectors)
               </strong>
               <div style={{ color: "#78350F", fontSize: "0.75rem" }}>
-                3 corridors flagged with heavy precipitation (&gt;35mm/h) and steep slope saturation. Click any town on the map to calculate a hazard-free safe detour.
+                {highRiskCount} corridors flagged with heavy precipitation (&gt;35mm/h) or geotechnical hazard. Click any town on the map to calculate a hazard-free safe detour.
               </div>
             </div>
           </div>
@@ -289,20 +313,20 @@ export default function LiveDashboardView() {
                       className={styles.riskBadge}
                       style={{
                         background:
-                          selectedSegment.risk_score >= 0.7
+                          selectedEffectiveRisk >= 0.7
                             ? "rgba(239, 68, 68, 0.15)"
-                            : selectedSegment.risk_score >= 0.4
+                            : selectedEffectiveRisk >= 0.4
                             ? "rgba(245, 158, 11, 0.15)"
                             : "rgba(34, 197, 94, 0.15)",
                         color:
-                          selectedSegment.risk_score >= 0.7
+                          selectedEffectiveRisk >= 0.7
                             ? "#EF4444"
-                            : selectedSegment.risk_score >= 0.4
+                            : selectedEffectiveRisk >= 0.4
                             ? "#F59E0B"
                             : "#22C55E",
                       }}
                     >
-                      Risk Index: {selectedSegment.risk_score.toFixed(2)} ({selectedSegment.risk_level})
+                      Risk Index: {selectedEffectiveRisk.toFixed(2)} ({selectedRiskLevel})
                     </span>
                   </div>
                   <h3 className={styles.drawerTitle}>{selectedSegment.name}</h3>

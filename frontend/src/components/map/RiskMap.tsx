@@ -227,20 +227,46 @@ export default function RiskMap({
     if (!liveWeather || lastWeatherRefresh === 0) return;
     setSegments((prev) =>
       prev.map((seg) => {
-        // Recalculate risk using the geotechnical formula:
-        // Risk = 0.35*Rain + 0.25*Slope + 0.25*Incidents + 0.15*Historical
-        const rainFactor = Math.min(1.0, liveWeather.rainfall_mm / 60); // 60mm/h = max
-        const slopeFactor = Math.min(1.0, seg.factors.slope_deg / 45); // 45deg = max
-        const incidentFactor = Math.min(1.0, seg.factors.active_reports / 5);
-        const historicalFactor = seg.base_risk;
-        const newScore = Math.round(
-          (0.35 * rainFactor + 0.25 * slopeFactor + 0.25 * incidentFactor + 0.15 * historicalFactor) * 100
-        ) / 100;
-        const updatedFactors = { ...seg.factors, rainfall_mm: Math.round((seg.factors.rainfall_mm * 0.3 + liveWeather.rainfall_mm * 0.7) * 10) / 10 };
+        // Geotechnical rainfall surge:
+        // During heavy rain (> 25mm/h), add an elevated slip surge proportional to slope steepness
+        const rainSurge =
+          liveWeather.rainfall_mm > 25
+            ? Math.min(
+                0.12,
+                Math.round(
+                  ((liveWeather.rainfall_mm - 25) / 50) *
+                    (seg.factors.slope_deg / 30) *
+                    100
+                ) / 100
+              )
+            : 0;
+        // Anchor to curated baseline risk score so baseline geotechnical classifications are never erased
+        const baseScore =
+          EAST_KHASI_HILLS_SEGMENTS.find((s) => s.id === seg.id)?.risk_score ??
+          seg.risk_score;
+        const adjustedScore = Math.min(
+          0.99,
+          Math.round((baseScore + rainSurge) * 100) / 100
+        );
+        const updatedFactors = {
+          ...seg.factors,
+          rainfall_mm:
+            Math.round(
+              (seg.factors.rainfall_mm * 0.3 + liveWeather.rainfall_mm * 0.7) *
+                10
+            ) / 10,
+        };
         return {
           ...seg,
-          risk_score: newScore,
-          risk_level: newScore < 0.4 ? "LOW" : newScore < 0.7 ? "MEDIUM" : newScore < 0.85 ? "HIGH" : "CRITICAL",
+          risk_score: adjustedScore,
+          risk_level:
+            adjustedScore < 0.4
+              ? "LOW"
+              : adjustedScore < 0.7
+              ? "MEDIUM"
+              : adjustedScore < 0.85
+              ? "HIGH"
+              : "CRITICAL",
           factors: updatedFactors,
         };
       })
@@ -514,19 +540,26 @@ export default function RiskMap({
     );
   }
 
-  // Filter segments based on corridor display mode
+  // Filter segments based on corridor display mode and risk level filter
   const displayedSegments = corridorDisplay === "OFF" ? [] : segments.filter((s) => {
+    const isBlocked = blockedSegmentIds?.includes(s.id);
+    const effectiveRisk = isBlocked ? 0.98 : s.risk_score;
+
     // First apply corridor display filter
-    if (corridorDisplay === "HAZARDS" && s.risk_score < 0.7) return false;
+    if (corridorDisplay === "HAZARDS" && effectiveRisk < 0.7) return false;
     // Then apply risk level filter
     if (filterRiskLevel === "ALL") return true;
-    if (filterRiskLevel === "HIGH") return s.risk_score >= 0.7;
-    if (filterRiskLevel === "MEDIUM") return s.risk_score >= 0.4 && s.risk_score < 0.7;
-    if (filterRiskLevel === "LOW") return s.risk_score < 0.4;
+    if (filterRiskLevel === "HIGH") return effectiveRisk >= 0.7;
+    if (filterRiskLevel === "MEDIUM") return effectiveRisk >= 0.4 && effectiveRisk < 0.7 && !isBlocked;
+    if (filterRiskLevel === "LOW") return effectiveRisk < 0.4 && !isBlocked;
     return true;
   });
 
-  const highHazardSegments = segments.filter((s) => s.risk_score >= 0.7);
+  const highHazardSegments = segments.filter((s) => {
+    const isBlocked = blockedSegmentIds?.includes(s.id);
+    const effectiveRisk = isBlocked ? 0.98 : s.risk_score;
+    return effectiveRisk >= 0.7;
+  });
   const selectedSegmentObj = segments.find((s) => s.id === selectedSegmentId);
   const selectedSegmentCenter: [number, number] | null =
     selectedSegmentObj && selectedSegmentObj.coordinates.length > 0
@@ -670,7 +703,7 @@ export default function RiskMap({
           const latLngs = seg.coordinates.map((c) => [c[1], c[0]] as [number, number]);
           const isBlocked = blockedSegmentIds?.includes(seg.id);
           const effectiveRisk = isBlocked ? 0.98 : seg.risk_score;
-          const color = isBlocked ? "#DC2626" : getRiskColor(seg.risk_score);
+          const color = isBlocked ? "#DC2626" : getRiskColor(effectiveRisk);
           const isSelected = selectedSegmentId === seg.id;
           const isHighRisk = effectiveRisk >= 0.7;
           const isMediumRisk = effectiveRisk >= 0.4 && effectiveRisk < 0.7;
@@ -682,7 +715,7 @@ export default function RiskMap({
               pathOptions={{
                 color: color,
                 weight: isSelected ? 8 : isBlocked ? 8 : isHighRisk ? 6 : 5,
-                opacity: isSelected ? 1.0 : isBlocked ? 1.0 : 0.88,
+                opacity: isSelected ? 1.0 : isBlocked ? 1.0 : isHighRisk ? 0.95 : 0.88,
                 dashArray: isBlocked ? "8, 5" : undefined,
                 lineCap: "round",
                 lineJoin: "round",
@@ -702,7 +735,9 @@ export default function RiskMap({
                   <div>
                     Safety Status:{" "}
                     <span style={{ color, fontWeight: 700 }}>
-                      {isHighRisk
+                      {isBlocked
+                        ? "🔴 BLOCKED (LANDSLIDE DISRUPTION)"
+                        : isHighRisk
                         ? "🔴 HAZARDOUS / HIGH SLIP RISK"
                         : isMediumRisk
                         ? "🟡 CAUTION / WET GRADE"
@@ -710,7 +745,7 @@ export default function RiskMap({
                     </span>
                   </div>
                   <div style={{ fontSize: "0.68rem", color: "#64748B" }}>
-                    Risk Index: {seg.risk_score.toFixed(2)} | Rain: {seg.factors.rainfall_mm} mm/h | Slope: {seg.factors.slope_deg}°
+                    Risk Index: {(effectiveRisk * 100).toFixed(0)}% | Rain: {seg.factors.rainfall_mm} mm/h | Slope: {seg.factors.slope_deg}°
                   </div>
                 </div>
               </Tooltip>
@@ -727,7 +762,9 @@ export default function RiskMap({
                   <div className={styles.popupRiskRow}>
                     <span>Passability Status:</span>
                     <strong style={{ color }}>
-                      {isHighRisk
+                      {isBlocked
+                        ? "🔴 Road Obstructed / Active Landslide"
+                        : isHighRisk
                         ? "🔴 Severe Hazard / Reroute"
                         : isMediumRisk
                         ? "🟡 Drive With Caution"
