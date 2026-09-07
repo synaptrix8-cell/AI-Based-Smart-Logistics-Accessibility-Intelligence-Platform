@@ -316,21 +316,7 @@ export default function AlertsView() {
   return (
     <div className={styles.content}>
       {notificationToast && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: "24px",
-            right: "24px",
-            zIndex: 1000,
-            background: "#0A6847",
-            color: "white",
-            padding: "12px 20px",
-            borderRadius: "10px",
-            boxShadow: "0 6px 20px rgba(0,0,0,0.25)",
-            fontSize: "0.85rem",
-            fontWeight: 700,
-          }}
-        >
+        <div className={styles.toast}>
           {notificationToast}
         </div>
       )}
@@ -370,7 +356,7 @@ export default function AlertsView() {
               />
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div className={styles.formRow}>
               <div className={styles.formGroup}>
                 <label className={styles.label}>Target Sector / Corridor</label>
                 <select
@@ -496,7 +482,7 @@ export default function AlertsView() {
           codes latitude, longitude, and corridor markers into the payload, and forwards it to the Officials&apos; Verification Queue.
         </p>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "20px", marginTop: "12px" }}>
+        <div className={styles.gatewayGrid}>
           {/* Left Column: Live GPS Auto-Tracker & Driver SMS Composer */}
           <div className={styles.gpsBuilderCard}>
             {/* Live GPS Bar */}
@@ -609,7 +595,7 @@ export default function AlertsView() {
             </div>
 
             {/* Interactive Builder Form */}
-            <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "10px" }}>
+            <div className={styles.smsCategoryRow}>
               {/* Category */}
               <div>
                 <label className={styles.label} style={{ fontSize: "0.72rem" }}>
@@ -666,7 +652,7 @@ export default function AlertsView() {
             </div>
 
             {/* Corridor Selection & Description */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: "10px" }}>
+            <div className={styles.smsCorridorRow}>
               <div>
                 <label className={styles.label} style={{ fontSize: "0.72rem" }}>
                   Monitored Corridor
@@ -736,8 +722,8 @@ export default function AlertsView() {
           </div>
 
           {/* Right Column: Live Gateway Terminal Activity */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div className={styles.terminalWrapper}>
+            <div className={styles.terminalHeader}>
               <label className={styles.label} style={{ margin: 0 }}>
                 Gateway Activity Terminal
               </label>
@@ -746,7 +732,7 @@ export default function AlertsView() {
               </span>
             </div>
 
-            <div className={styles.terminalBox} style={{ minHeight: "360px", maxHeight: "420px" }}>
+            <div className={styles.terminalBox}>
               {terminalLogs.map((log) => (
                 <div key={log.id} className={styles.terminalLine}>
                   <span style={{ color: "#94A3B8" }}>[{log.time}] </span>
