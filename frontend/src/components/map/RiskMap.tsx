@@ -878,7 +878,7 @@ export default function RiskMap({
                 {" "}{liveWeather.temp_c}°C
               </span>
               <span style={{ opacity: 0.7 }}>|</span>
-              <span>💧 {liveWeather.rainfall_mm} mm/h</span>
+              <span>💧 {Number(liveWeather.rainfall_mm).toFixed(1)} mm/h</span>
               <span style={{ opacity: 0.7 }}>|</span>
               <span>💨 {liveWeather.wind_kmh} km/h</span>
               {activeRealtimeUpdates > 0 && (
