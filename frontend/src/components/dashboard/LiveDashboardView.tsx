@@ -167,7 +167,7 @@ export default function LiveDashboardView() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          from: "whatsapp:+919436188210",
+          from: "whatsapp:+910000000000",
           body: "Flash flood overflowing over NH-6 culvert near Umsning! Road completely blocked for trucks.",
           location: "Umsning",
           hazard_type: "flood",

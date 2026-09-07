@@ -69,7 +69,7 @@ export default function AlertsView() {
     {
       id: "log-01",
       type: "inbound",
-      text: "[SMS RECV +919876543210] SETU RPT|CAT:landslide|SEV:4|LAT:25.81|LNG:91.86|COR:seg-003|MSG:Mud on NH6",
+      text: "[INBOUND SMS • Emergency Shortcode 1077] SETU RPT|CAT:landslide|SEV:4|LAT:25.81|LNG:91.86|COR:seg-003|MSG:Mud on NH6",
       time: "01:14:22",
     },
     {
@@ -242,11 +242,12 @@ export default function AlertsView() {
   const handleSimulateInboundSMS = async () => {
     setIsTestingSMS(true);
     try {
+      const gatewayShortcode = process.env.NEXT_PUBLIC_SMS_GATEWAY_PHONE || "1077";
       const resp = await fetch("/api/alerts/inbound-sms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          from: "+919436128899",
+          from: "Driver-Field-Terminal",
           text: testSMSText,
         }),
       });
@@ -263,7 +264,7 @@ export default function AlertsView() {
           {
             id: `log-sms-${Date.now()}`,
             type: "inbound",
-            text: `[INBOUND SMS RECV +919436128899] ${testSMSText}`,
+            text: `[INBOUND SMS RECV • Emergency Gateway ${gatewayShortcode}] ${testSMSText}`,
             time: new Date().toLocaleTimeString(),
           },
           ...prev,
@@ -285,7 +286,7 @@ export default function AlertsView() {
               lat: data.parsed?.lat || gpsLat,
               lng: data.parsed?.lng || gpsLng,
               severity: data.parsed?.severity || smsSeverity,
-              description: `[INBOUND SMS via +919436128899] ${data.parsed?.notes || smsNotes}`,
+              description: `[INBOUND SMS via Emergency Helpline ${gatewayShortcode}] ${data.parsed?.notes || smsNotes}`,
               status: "unverified",
               created_at: new Date().toISOString(),
             };
@@ -725,11 +726,11 @@ export default function AlertsView() {
               </button>
 
               <a
-                href={`sms:+919436128899?body=${encodeURIComponent(testSMSText)}`}
+                href={`sms:${process.env.NEXT_PUBLIC_SMS_GATEWAY_PHONE || "1077"}?body=${encodeURIComponent(testSMSText)}`}
                 className={styles.nativeSmsBtn}
-                title="Opens your mobile phone's native SMS app with the pre-coded payload ready to send"
+                title="Opens your mobile phone's native SMS app addressed to the official Disaster Management Helpline (1077)"
               >
-                <span>📱 Open Phone SMS App</span>
+                <span>📱 Open Phone SMS App (1077)</span>
               </a>
             </div>
           </div>
@@ -741,7 +742,7 @@ export default function AlertsView() {
                 Gateway Activity Terminal
               </label>
               <span style={{ fontSize: "0.68rem", color: "#16A34A", fontWeight: 700 }}>
-                ● Cellular Modem Online (+91-9436128899)
+                ● SDMA Emergency Gateway Online (Shortcode: 1077 / 1070)
               </span>
             </div>
 

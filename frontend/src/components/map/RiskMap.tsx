@@ -330,7 +330,7 @@ export default function RiskMap({
         formattedDate: formatIncidentDate(new Date(now - 1000 * 60 * 12).toISOString()),
         timeAgo: "12 min ago",
         status: "ACTIVE",
-        source: "Citizen & Driver WhatsApp Inbound (+91-94361-XXXXX)",
+        source: "Citizen & Driver Emergency Inbound (Helpline 1077)",
       },
       {
         id: "live-002",

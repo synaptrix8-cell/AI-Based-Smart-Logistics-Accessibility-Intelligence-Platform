@@ -22,7 +22,7 @@ interface IngestedWhatsAppHazard {
 let LIVE_WHATSAPP_INCIDENTS: IngestedWhatsAppHazard[] = [
   {
     id: "wa-init-001",
-    from_number: "+91 94361 28910",
+    from_number: "Citizen-Driver-Channel",
     hazard_type: "landslide",
     location_name: "SH-5 Cherrapunji Gorgeside Pass",
     matched_segment_id: "seg-010",
@@ -42,7 +42,7 @@ export async function GET() {
     active_incidents: LIVE_WHATSAPP_INCIDENTS,
     supported_formats: ["Twilio Webhook (application/x-www-form-urlencoded)", "Direct JSON (application/json)"],
     example_payload: {
-      from: "whatsapp:+919436000000",
+      from: "whatsapp:+910000000000",
       body: "Flash flood overflowing over NH-6 culvert near Umsning. Road blocked for heavy vehicles.",
       photo_url: "https://images.unsplash.com/photo-1515694346937-94d85e41e6f0",
       location: "Umsning",
@@ -52,7 +52,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    let fromNumber = "+91 94360 00000";
+    let fromNumber = "Citizen-Field-Terminal";
     let bodyText = "";
     let photoUrl: string | undefined = undefined;
     let explicitLocation: string | undefined = undefined;

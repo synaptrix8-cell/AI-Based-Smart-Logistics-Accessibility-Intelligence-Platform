@@ -78,7 +78,7 @@ export function parseSMSReport(smsText: string): ParsedSMSReport | null {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { from = "+919876543210", text, timestamp = new Date().toISOString() } = body;
+    const { from = "Driver-Field-Terminal", text, timestamp = new Date().toISOString() } = body;
 
     if (!text) {
       return NextResponse.json(

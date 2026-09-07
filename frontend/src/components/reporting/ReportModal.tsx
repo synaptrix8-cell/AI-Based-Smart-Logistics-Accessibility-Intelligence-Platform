@@ -347,7 +347,8 @@ export default function ReportModal({
   };
 
   const smsText = formatReportSMS(currentReportPreview);
-  const smsHref = `sms:+919436000000?body=${encodeURIComponent(smsText)}`;
+  const smsGatewayNumber = process.env.NEXT_PUBLIC_SMS_GATEWAY_PHONE || "1077";
+  const smsHref = `sms:${smsGatewayNumber}?body=${encodeURIComponent(smsText)}`;
 
   return (
     <div className={styles.backdrop} onClick={onClose}>
@@ -716,8 +717,8 @@ export default function ReportModal({
 
               <div className={styles.footer}>
                 <div className={styles.fallbackActions}>
-                  <a href={smsHref} className={styles.smsBtn} title="Emergency 160-char SMS">
-                    <span>💬</span> Send via SMS
+                  <a href={smsHref} className={styles.smsBtn} title="Emergency 160-char SMS to State Disaster Operations (1077)">
+                    <span>💬</span> Send via SMS (1077)
                   </a>
                 </div>
 
