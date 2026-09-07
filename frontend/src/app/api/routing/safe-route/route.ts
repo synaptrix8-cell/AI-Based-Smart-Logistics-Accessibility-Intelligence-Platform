@@ -152,42 +152,41 @@ export async function POST(request: NextRequest) {
         blocked_segment_ids.some((id: string) => id === "seg-013" || id === "seg-014" || id === "seg-ekh-011") ||
         Boolean(live_hazard_location && (live_hazard_location.toLowerCase().includes("dawki") || live_hazard_location.toLowerCase().includes("pynursla") || live_hazard_location.toLowerCase().includes("nh40")));
 
-      // Route-specific intersection:
+      // Route-specific intersection with confirmed physical blockages:
       const isRouteBlockedByNongpohUmsning = isSeg001Blocked && routeTraversesNongpohUmsning;
       const isRouteBlockedByUmsningUmiam = isSeg002Blocked && routeTraversesUmsningUmiam;
       const isRouteBlockedByUmiamShillong = isSeg003Blocked && routeTraversesUmiamShillong;
       const isRouteBlockedBySohra = isSohraBlocked && routeTraversesSohra;
       const isRouteBlockedByDawki = isDawkiBlocked && routeTraversesDawki;
 
-      // Geotechnical risk evaluation against user's custom avoidRiskThreshold slider:
-      // Inherent corridor risks: Umiam-Shillong descent: 0.55, Sohra gorge: 0.82, Dawki border: 0.65
-      const isUmiamShillongExcessRisk = routeTraversesUmiamShillong && (0.55 > avoidRiskThreshold);
-      const isSohraExcessRisk = routeTraversesSohra && (0.80 > avoidRiskThreshold);
-      const isDawkiExcessRisk = routeTraversesDawki && (0.62 > avoidRiskThreshold);
+      // Excess geotechnical risk evaluation:
+      // Only trigger alternate highway reroutes where a verified, viable parallel bypass exists
+      // (e.g. Shillong Bypass for NH6, or NH206 for Dawki).
+      // Note: SH5 Sohra Highway is a single-artery ridge corridor; there is no road across the canyon to Weiloi.
+      const isUmiamShillongExcessRisk = routeTraversesUmiamShillong && avoidRiskThreshold < 0.50;
+      const isDawkiExcessRisk = routeTraversesDawki && avoidRiskThreshold < 0.55;
 
-      // Trigger hazard avoidance if either:
-      // 1) An active physical blockage/incident is confirmed on this transit path, OR
-      // 2) A traversed mountain segment exceeds the user's custom "Avoid Segments Above Risk" slider setting!
+      // Trigger hazard avoidance ONLY when a physical blockage or severe risk exists on a bypassable corridor
       const shouldAvoidHazard =
         isRouteBlockedByNongpohUmsning ||
         isRouteBlockedByUmsningUmiam ||
         isRouteBlockedByUmiamShillong ||
-        isRouteBlockedBySohra ||
         isRouteBlockedByDawki ||
         isUmiamShillongExcessRisk ||
-        isSohraExcessRisk ||
         isDawkiExcessRisk;
 
       let safeCoords = roadCoords;
       let safeDistKm = distKm;
-      let safeRisk = shouldAvoidHazard ? 0.78 : 0.22;
+      let safeRisk = isRouteBlockedBySohra ? 0.85 : 0.22;
       let shortestRisk = safeRisk;
       let riskReductionPct = 0;
       let isRerouted = false;
       let rerouteReason = "";
-      let vehicleAdvisory = "Direct highway transit permitted. Road is clear and safe for all transport.";
+      let vehicleAdvisory = isRouteBlockedBySohra
+        ? "⚠️ Hazard Advisory on SH5 Sohra Corridor: Single-artery ridge access. PWD clearance underway; proceed with caution."
+        : "Direct highway transit permitted. Road is clear and safe for all transport.";
 
-      // Compute dynamic road-following detour via OSRM only when an actual hazard or excess risk is on this route
+      // Compute dynamic road-following detour via verified alternate bypasses only
       if (shouldAvoidHazard) {
         try {
           let detourWaypoint: string | null = null;
@@ -201,18 +200,14 @@ export async function POST(request: NextRequest) {
             if (minLat >= 25.65) {
               detourWaypoint = "91.945,25.710";
             } else {
-              detourWaypoint = "91.980,25.640";
+              detourWaypoint = "91.980,25.640"; // Shillong East Bypass
             }
           } else if (isRouteBlockedByUmiamShillong || isUmiamShillongExcessRisk) {
             blockedName = "NH-6 Umiam - Upper Shillong Descent";
-            // Bypass via Shillong East Bypass
+            // Bypass via Shillong East Bypass (Mawryngkneng connector)
             detourWaypoint = "91.980,25.640";
-          } else if (isRouteBlockedBySohra || isSohraExcessRisk) {
-            // Bypass SH-5 via Mawphlang - Weiloi Ridge
-            detourWaypoint = "91.685,25.390";
-            blockedName = "SH-5 Mawkdok-Cherrapunji Pass";
           } else if (isRouteBlockedByDawki || isDawkiExcessRisk) {
-            // Bypass NH-40 Pynursla - Dawki via Jowai / Amlarem Highway
+            // Bypass NH-40 Pynursla - Dawki via Jowai / Amlarem Highway (NH206)
             detourWaypoint = "92.120,25.320";
             blockedName = "NH-40 Pynursla - Dawki Border Corridor";
           }
