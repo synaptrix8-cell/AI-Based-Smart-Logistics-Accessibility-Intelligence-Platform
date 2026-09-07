@@ -9,7 +9,7 @@ interface RoleGuardProps {
   allowedRoles: UserRole[];
   /** Content to render when authorized */
   children: ReactNode;
-  /** Content to render when unauthorized (optional — defaults to null) */
+  /** Content to render when unauthorized (optional - defaults to null) */
   fallback?: ReactNode;
   /** Content to render while loading */
   loading?: ReactNode;
@@ -17,8 +17,9 @@ interface RoleGuardProps {
 
 /**
  * Client-side role guard component.
+ * Conditionally renders children only if the user possesses the required role.
  * 
- * IMPORTANT: This is a UI convenience — actual access control is enforced
+ * IMPORTANT: This is a UI convenience - actual access control is enforced
  * server-side via RLS policies. This just prevents rendering content that
  * the user doesn't have access to, avoiding confusing empty states.
  */

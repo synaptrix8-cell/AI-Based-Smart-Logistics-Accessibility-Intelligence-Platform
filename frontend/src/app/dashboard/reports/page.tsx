@@ -1,9 +1,14 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import VerificationQueueView from "@/components/dashboard/VerificationQueueView";
 import styles from "./reports.module.css";
+
+export const metadata: Metadata = {
+  title: "Reports",
+};
 
 export default async function ReportsPage({
   searchParams,

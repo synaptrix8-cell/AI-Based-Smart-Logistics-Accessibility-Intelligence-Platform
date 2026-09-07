@@ -19,7 +19,7 @@ const INITIAL_ALERTS: ActiveAlert[] = [
   {
     id: "alt-01",
     title: "🚨 Active Mudslide & Road Sinking",
-    corridor: "NH6: Umiam – Upper Shillong Descent",
+    corridor: "NH6: Umiam - Upper Shillong Descent",
     severity: "CRITICAL",
     message: "Debris and mud blocking northbound truck lane. Geotechnical risk index 0.74. All heavy goods vehicles diverted to Shillong Bypass.",
     channels: ["SMS", "WhatsApp", "Push"],
@@ -29,7 +29,7 @@ const INITIAL_ALERTS: ActiveAlert[] = [
   {
     id: "alt-02",
     title: "⚠️ Extreme Fog & Torrential Rain",
-    corridor: "SH5: Cherrapunji – Mawsmai Escarpment",
+    corridor: "SH5: Cherrapunji - Mawsmai Escarpment",
     severity: "HIGH",
     message: "Rainfall intensity at 44.5 mm/h. Visibility below 15 meters. Maintain speed below 25 km/h.",
     channels: ["SMS", "Push"],
@@ -39,7 +39,7 @@ const INITIAL_ALERTS: ActiveAlert[] = [
   {
     id: "alt-03",
     title: "🌊 Riverbed Silt Inflow Advisory",
-    corridor: "NH206: Dawki – Pynursla Border Connector",
+    corridor: "NH206: Dawki - Pynursla Border Connector",
     severity: "MEDIUM",
     message: "River Umngot approach road wet and slippery. Light commercial vehicles permitted with caution.",
     channels: ["Push"],

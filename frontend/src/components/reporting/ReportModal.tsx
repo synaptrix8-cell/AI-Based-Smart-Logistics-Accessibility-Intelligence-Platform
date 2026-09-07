@@ -615,7 +615,7 @@ export default function ReportModal({
                 >
                   {EAST_KHASI_HILLS_SEGMENTS.map((corridor) => (
                     <option key={corridor.id} value={corridor.id}>
-                      {corridor.name} ({corridor.highway_ref}) — Slope: {corridor.factors.slope_deg}°
+                      {corridor.name} ({corridor.highway_ref}) - Slope: {corridor.factors.slope_deg}°
                     </option>
                   ))}
                 </select>
@@ -655,7 +655,7 @@ export default function ReportModal({
               {/* Severity Level Slider */}
               <div className={styles.formGroup}>
                 <label className={styles.label}>
-                  Severity Level ({severity}/5) — {
+                  Severity Level ({severity}/5): {
                     severity === 1
                       ? "Minor debris"
                       : severity === 2

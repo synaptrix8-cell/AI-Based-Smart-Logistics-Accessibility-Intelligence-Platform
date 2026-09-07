@@ -1,9 +1,14 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import LiveDashboardView from "@/components/dashboard/LiveDashboardView";
 import styles from "./dashboard.module.css";
+
+export const metadata: Metadata = {
+  title: "GIS Risk Map",
+};
 
 export default async function DashboardPage({
   searchParams,

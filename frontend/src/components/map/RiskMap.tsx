@@ -1238,7 +1238,7 @@ export default function RiskMap({
             );
           })}
 
-        {/* Shortest Route Overlay — Only show when an active detour around a blocked hazard is applied */}
+        {/* Shortest Route Overlay - Only show when an active detour around a blocked hazard is applied */}
         {shortestRoute && shortestRoute.coordinates.length > 1 && safeRoute?.is_rerouted && (
           <Polyline
             positions={shortestRoute.coordinates}
@@ -1259,7 +1259,7 @@ export default function RiskMap({
           </Polyline>
         )}
 
-        {/* AI Safe Route Overlay — Dual-layer GPS navigation styling with realistic road curves */}
+        {/* AI Safe Route Overlay - Dual-layer GPS navigation styling with realistic road curves */}
         {safeRoute && safeRoute.coordinates.length > 1 && (
           <>
             {/* Outer dark casing for high contrast against OpenStreetMap */}

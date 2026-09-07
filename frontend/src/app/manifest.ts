@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Setu — Smart Logistics & Accessibility Platform",
+    name: "Setu - Smart Logistics & Accessibility Platform",
     short_name: "Setu",
     description:
       "AI-powered road risk monitoring and safe routing for India's North Eastern Region",

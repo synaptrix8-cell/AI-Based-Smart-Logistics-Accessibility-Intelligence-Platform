@@ -726,7 +726,7 @@ export function densifyCurvedCoordinates(
 }
 
 /**
- * Client-Side Dijkstra Router — Computes shortest vs risk-penalized safe route
+ * Client-Side Dijkstra Router - Computes shortest vs risk-penalized safe route
  * with high-density road-following curves and dynamic blockage avoidance.
  */
 export function computeClientSafeRoute(

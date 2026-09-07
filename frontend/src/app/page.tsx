@@ -20,7 +20,7 @@ export default function HomePage() {
         <p className={styles.subtitle}>
           AI-powered road risk monitoring, safe routing, and real-time hazard
           reporting for NER&apos;s most critical transport corridors. Keeping
-          medicine, food, and essential goods moving — even when the terrain
+          medicine, food, and essential goods moving - even when the terrain
           fights back.
         </p>
 
@@ -46,7 +46,7 @@ export default function HomePage() {
           <div className={styles.feature}>
             <div className={styles.featureIcon}>🛤️</div>
             <h3>AI Safe Routing</h3>
-            <p>Dijkstra-based pathfinding that avoids high-risk segments — not just shortest distance</p>
+            <p>Dijkstra-based pathfinding that avoids high-risk segments - not just shortest distance</p>
           </div>
           <div className={styles.feature}>
             <div className={styles.featureIcon}>📋</div>

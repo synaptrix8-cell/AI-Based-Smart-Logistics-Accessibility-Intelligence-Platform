@@ -1,7 +1,7 @@
-/* ============================================
-   Setu — Design System & Global Styles
-   AI-Based Smart Logistics Platform
-   ============================================ */
+/* ==========================================================================
+   Setu - Design System & Global Styles
+   AI-Based Smart Logistics & Accessibility Platform for North East India
+   ========================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 @import "leaflet/dist/leaflet.css";
@@ -10,14 +10,14 @@
    CSS Custom Properties (Design Tokens)
    ----------------------------------------------- */
 :root {
-  /* Brand colors — inspired by NER landscapes */
-  --color-primary: #0A6847;        /* Forest green — safety, nature */
-  --color-primary-light: #16A34A;
+  /* Brand colors - inspired by NER landscapes */
+  --color-primary: #0A6847;        /* Forest green - safety, nature */
+  --color-primary-light: #10B981;
   --color-primary-dark: #064E3B;
-  --color-secondary: #1E40AF;      /* Deep blue — trust, gov */
+  --color-secondary: #1E40AF;      /* Deep blue - trust, gov */
   --color-secondary-light: #3B82F6;
-  --color-accent: #F59E0B;         /* Amber — warnings, alerts */
-  --color-accent-red: #EF4444;     /* Red — danger, high risk */
+  --color-accent: #F59E0B;         /* Amber - warnings, alerts */
+  --color-accent-red: #EF4444;     /* Red - danger, high risk */
 
   /* Risk color scale */
   --risk-low: #22C55E;             /* Green */

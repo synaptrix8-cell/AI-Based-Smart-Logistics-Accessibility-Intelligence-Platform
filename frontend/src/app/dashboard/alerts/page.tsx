@@ -1,9 +1,14 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import AlertsView from "@/components/dashboard/AlertsView";
 import styles from "./alerts.module.css";
+
+export const metadata: Metadata = {
+  title: "Alerts",
+};
 
 export default async function AlertsPage({
   searchParams,

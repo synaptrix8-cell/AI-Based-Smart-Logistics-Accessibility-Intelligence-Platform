@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Security headers — enforced on every response
+  // Security headers - enforced on every response
   async headers() {
     return [
       {

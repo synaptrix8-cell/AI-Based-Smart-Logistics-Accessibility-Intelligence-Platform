@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Setu — Smart Logistics & Accessibility Platform",
+    default: "Setu - Smart Logistics & Accessibility Platform",
     template: "%s | Setu",
   },
   description:
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "Setu Team" }],
   openGraph: {
-    title: "Setu — Smart Logistics & Accessibility Platform",
+    title: "Setu - Smart Logistics & Accessibility Platform",
     description:
       "Real-time road risk monitoring and safe routing for India's North Eastern Region.",
     type: "website",
