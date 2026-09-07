@@ -50,21 +50,25 @@ export default function DashboardHeader({
             className={styles.navLink}
             data-active={isRiskMapActive ? "true" : undefined}
           >
-            🗺️ GIS Risk Map
+            <span>🗺️</span>
+            <span className={styles.navTextDesktop}>GIS Risk Map</span>
+            <span className={styles.navTextMobile}>Map</span>
           </Link>
           <Link
             href="/dashboard/reports"
             className={styles.navLink}
             data-active={isReportsActive ? "true" : undefined}
           >
-            📋 Reports
+            <span>📋</span>
+            <span>Reports</span>
           </Link>
           <Link
             href="/dashboard/alerts"
             className={styles.navLink}
             data-active={isAlertsActive ? "true" : undefined}
           >
-            🔔 Alerts
+            <span>🔔</span>
+            <span>Alerts</span>
           </Link>
         </nav>
 

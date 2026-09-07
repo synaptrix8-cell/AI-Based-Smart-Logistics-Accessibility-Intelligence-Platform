@@ -264,3 +264,64 @@
   background: rgba(239, 68, 68, 0.25);
   color: #fff;
 }
+
+/* Advisory Banner Component */
+.advisoryBanner {
+  background: linear-gradient(90deg, #FEF2F2 0%, #FFFBEB 100%);
+  border: 1px solid #FCA5A5;
+  border-radius: 12px;
+  padding: 10px 16px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.1);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .container {
+    gap: 12px;
+  }
+
+  .filterBar {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .filterGroup {
+    gap: 4px;
+  }
+
+  .filterBtn {
+    padding: 5px 10px;
+    font-size: 0.7rem;
+  }
+
+  .advisoryBanner {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .reportFloatingBtn {
+    bottom: 16px;
+    right: 16px;
+    padding: 10px 16px;
+    font-size: 0.8rem;
+    gap: 6px;
+  }
+
+  .segmentDrawer {
+    padding: 14px;
+  }
+
+  .drawerTitle {
+    font-size: 1rem;
+  }
+
+  .factorsRow {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+}

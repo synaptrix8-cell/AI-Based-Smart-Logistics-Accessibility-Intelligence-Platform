@@ -436,19 +436,7 @@ export default function LiveDashboardView() {
 
       {/* Active Regional Hazard Advisory Banner (Phase 4 integration) */}
       {!dismissAdvisory && (
-        <div
-          style={{
-            background: "linear-gradient(90deg, #FEF2F2 0%, #FFFBEB 100%)",
-            border: "1px solid #FCA5A5",
-            borderRadius: "12px",
-            padding: "10px 16px",
-            marginBottom: "12px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            boxShadow: "0 2px 6px rgba(239, 68, 68, 0.1)",
-          }}
-        >
+        <div className={styles.advisoryBanner}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <span style={{ fontSize: "1.2rem" }}>🚨</span>
             <div>

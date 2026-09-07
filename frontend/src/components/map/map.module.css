@@ -880,3 +880,109 @@
   letter-spacing: 0.5px;
 }
 
+/* ==========================================================================
+   Mobile & Touchscreen Responsive Adaptations (< 768px)
+   ========================================================================== */
+@media (max-width: 768px) {
+  .mapWrapper {
+    height: 420px;
+    border-radius: 14px;
+  }
+
+  /* Quick control pill bar: horizontally scrollable, non-colliding */
+  .mapQuickControls {
+    top: 8px;
+    left: 8px;
+    max-width: calc(100% - 16px);
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 4px 8px;
+    gap: 4px;
+  }
+  .mapQuickControls::-webkit-scrollbar {
+    display: none;
+  }
+
+  .controlPill {
+    font-size: 0.66rem;
+    padding: 4px 8px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Reposition live weather badge on mobile so it never collides with quick controls */
+  .realtimeBadge {
+    top: 48px;
+    right: 8px;
+    padding: 4px 8px;
+    font-size: 0.65rem;
+    gap: 4px;
+  }
+
+  /* Compact legend: horizontally scrollable on mobile */
+  .compactLegendBar {
+    bottom: 8px;
+    left: 8px;
+    max-width: calc(100% - 16px);
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 4px 8px;
+    gap: 6px;
+  }
+  .compactLegendBar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .compactLegendItem {
+    font-size: 0.65rem;
+    gap: 4px;
+  }
+
+  .compactLegendDivider {
+    height: 10px;
+  }
+
+  .compactLegendBtn {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+  }
+
+  .legendPopover {
+    width: 280px;
+    font-size: 0.72rem;
+  }
+
+  /* Live Reroute Banner: scaled and padded for mobile */
+  .liveRerouteBanner {
+    top: 80px;
+    width: calc(100% - 16px);
+    max-width: 100%;
+    padding: 8px 10px;
+    gap: 8px;
+    font-size: 0.75rem;
+  }
+
+  .reroutePill {
+    font-size: 0.62rem;
+    padding: 3px 6px;
+  }
+
+  .rerouteText {
+    font-size: 0.72rem;
+  }
+
+  .rerouteSub {
+    font-size: 0.65rem;
+  }
+
+  /* Realtime Feed Ticker at bottom */
+  .realtimeFeedTicker {
+    padding: 6px 10px;
+    font-size: 0.72rem;
+  }
+}
+

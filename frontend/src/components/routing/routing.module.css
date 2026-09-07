@@ -246,3 +246,48 @@
   border-radius: 4px;
   color: var(--color-text-secondary);
 }
+
+/* ==========================================================================
+   Mobile & Touchscreen Responsive Adaptations (< 768px)
+   ========================================================================== */
+@media (max-width: 768px) {
+  .plannerCard {
+    padding: 14px;
+    border-radius: 14px;
+    gap: 12px;
+  }
+
+  /* 16px input font-size prevents iOS Safari from automatically zooming the page */
+  .selectInput {
+    font-size: 16px;
+    padding: 10px 12px;
+    min-height: 44px;
+  }
+
+  .buttonRow {
+    gap: 8px;
+  }
+
+  .computeBtn {
+    min-height: 44px;
+    font-size: 0.85rem;
+  }
+
+  .clearBtn {
+    min-height: 44px;
+    padding: 8px 14px;
+  }
+
+  .comparisonGrid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .resultBox {
+    padding: 8px 10px;
+  }
+
+  .metricVal {
+    font-size: 1.15rem;
+  }
+}

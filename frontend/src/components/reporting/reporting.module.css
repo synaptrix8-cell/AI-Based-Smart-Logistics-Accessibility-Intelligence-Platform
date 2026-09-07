@@ -713,3 +713,63 @@
   box-shadow: 0 0 16px rgba(16, 185, 129, 0.4);
 }
 
+/* ==========================================================================
+   Mobile & Touchscreen Responsive Adaptations (< 640px)
+   ========================================================================== */
+@media (max-width: 640px) {
+  .backdrop {
+    padding: 8px;
+    align-items: flex-end;
+  }
+
+  .modal {
+    max-height: 94vh;
+    border-radius: 16px 16px 8px 8px;
+    width: 100%;
+  }
+
+  .header {
+    padding: 14px 16px;
+  }
+
+  .title {
+    font-size: 1.05rem;
+  }
+
+  .body {
+    padding: 14px 16px;
+    gap: 14px;
+  }
+
+  /* 16px font-size prevents iOS Safari from automatically zooming the page */
+  .select, .input, .textarea {
+    font-size: 16px;
+    padding: 10px 12px;
+    min-height: 44px;
+  }
+
+  .categoryGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .catBtn {
+    padding: 8px 6px;
+    font-size: 0.72rem;
+  }
+
+  .catIcon {
+    font-size: 1.1rem;
+  }
+
+  .driverSubmitRow {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .whatsappBtn, .driverSubmitBtn {
+    min-height: 44px;
+    width: 100%;
+  }
+}
+

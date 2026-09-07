@@ -311,3 +311,36 @@
   color: rgba(255, 255, 255, 0.5);
   font-size: 0.95rem;
 }
+
+/* ==========================================================================
+   Mobile & Touchscreen Responsive Adaptations (< 768px)
+   ========================================================================== */
+@media (max-width: 768px) {
+  .content {
+    padding: 12px 10px;
+    gap: 14px;
+  }
+
+  .reportsGrid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .card {
+    padding: 14px;
+    border-radius: 12px;
+  }
+
+  .pageHeading {
+    font-size: 1.3rem;
+  }
+
+  .filtersBar {
+    gap: 6px;
+  }
+
+  .filterBtn {
+    padding: 5px 10px;
+    font-size: 0.72rem;
+  }
+}

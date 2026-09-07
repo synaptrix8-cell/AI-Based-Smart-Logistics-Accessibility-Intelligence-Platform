@@ -237,6 +237,30 @@
 
 /* Responsive */
 @media (max-width: 768px) {
+  .content {
+    padding: 12px 10px;
+    gap: 14px;
+  }
+
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .statCard {
+    padding: 10px 12px;
+    gap: 10px;
+    border-radius: 12px;
+  }
+
+  .statValue {
+    font-size: 1.2rem;
+  }
+
+  .statLabel {
+    font-size: 0.68rem;
+  }
+
   .topBarInner {
     flex-wrap: wrap;
     gap: var(--space-sm);

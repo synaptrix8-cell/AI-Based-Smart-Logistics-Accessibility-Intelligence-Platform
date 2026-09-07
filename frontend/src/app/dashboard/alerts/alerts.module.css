@@ -534,3 +534,26 @@
   transform: translateY(-1px);
 }
 
+/* ==========================================================================
+   Mobile & Touchscreen Responsive Adaptations (< 768px)
+   ========================================================================== */
+@media (max-width: 768px) {
+  .content {
+    padding: 12px 10px;
+    gap: 14px;
+  }
+
+  .pageHeading {
+    font-size: 1.3rem;
+  }
+
+  .sectionCard {
+    padding: 14px;
+    border-radius: 12px;
+  }
+
+  .nativeSmsBtn {
+    min-height: 44px;
+  }
+}
+
